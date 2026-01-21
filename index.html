@@ -8,13 +8,14 @@ import {
   getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged 
 } from 'firebase/auth';
 
-// --- CONFIG & INIT ---
+// --- FIREBASE YAPILANDIRMASI ---
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Veritabanını sıfırlamak için sürümü v12 yaptık
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'pro-egitim-cloud-v12';
+
+// Veritabanını tamamen sıfırlamak için sürümü v13 yaptık.
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'pro-egitim-cloud-v13';
 
 const BRANCHES = ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"];
 const EMOTIONS_MAP = [
@@ -34,7 +35,7 @@ const App = () => {
     const [priceLogs, setPriceLogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // --- AUTHENTICATION ---
+    // --- KİMLİK DOĞRULAMA (RULE 3) ---
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -44,7 +45,7 @@ const App = () => {
                     await signInAnonymously(auth);
                 }
             } catch (error) {
-                console.error("Auth Error:", error);
+                console.error("Kimlik Doğrulama Hatası:", error);
             }
         };
         initAuth();
@@ -55,24 +56,27 @@ const App = () => {
         return () => unsubscribe();
     }, []);
 
-    // --- REAL-TIME SYNC ---
+    // --- ANLIK VERİ SENKRONİZASYONU (RULE 1 & 2) ---
     useEffect(() => {
         if (!user) return;
 
         const getColl = (name) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
+        // Öğrenci Listesi Dinleyicisi
         const unsubStudents = onSnapshot(getColl('students'), (snap) => {
             setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             setLoading(false);
-        }, (err) => console.error("Students Sync Error:", err));
+        }, (err) => console.error("Öğrenci Senkronizasyon Hatası:", err));
 
+        // Ders Listesi Dinleyicisi
         const unsubLessons = onSnapshot(getColl('lessons'), (snap) => {
             setLessons(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (err) => console.error("Lessons Sync Error:", err));
+        }, (err) => console.error("Ders Senkronizasyon Hatası:", err));
 
+        // Fiyat Günlükleri Dinleyicisi
         const unsubLogs = onSnapshot(getColl('priceLogs'), (snap) => {
             setPriceLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (err) => console.error("Logs Sync Error:", err));
+        }, (err) => console.error("Log Senkronizasyon Hatası:", err));
 
         return () => {
             unsubStudents();
@@ -81,25 +85,27 @@ const App = () => {
         };
     }, [user]);
 
-    // --- ACTIONS ---
+    // --- VERİ TABANI İŞLEMLERİ ---
     const saveStudent = async (data) => {
         if (!user) return;
         const coll = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+        const price = parseFloat(data.unitPrice) || 0;
+        
         if (data.id) {
             const old = students.find(s => s.id === data.id);
-            if (old && parseFloat(old.unitPrice) !== parseFloat(data.unitPrice)) {
+            if (old && parseFloat(old.unitPrice) !== price) {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'priceLogs'), {
                     studentId: data.id,
                     oldPrice: old.unitPrice,
-                    newPrice: data.unitPrice,
+                    newPrice: price,
                     date: new Date().toLocaleDateString('tr-TR'),
                     ts: Date.now()
                 });
             }
             const { id, ...payload } = data;
-            await setDoc(doc(coll, id), payload, { merge: true });
+            await setDoc(doc(coll, id), { ...payload, unitPrice: price }, { merge: true });
         } else {
-            await addDoc(coll, data);
+            await addDoc(coll, { ...data, unitPrice: price });
         }
     };
 
@@ -117,7 +123,8 @@ const App = () => {
         const payload = { 
             ...data, 
             priceAtTime: lockedPrice,
-            updatedAt: Date.now() 
+            updatedAt: Date.now(),
+            branches: data.branches || []
         };
 
         if (data.id) {
@@ -137,7 +144,7 @@ const App = () => {
         return (
             <div className="h-screen w-full bg-[#020617] flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-                <div className="text-blue-500 font-black text-xs tracking-[0.3em] uppercase animate-pulse">Bulut Oturumu Açılıyor...</div>
+                <div className="text-blue-500 font-black text-[10px] tracking-[0.3em] uppercase animate-pulse">Bulut Verileri Temizleniyor...</div>
             </div>
         );
     }
@@ -155,7 +162,7 @@ const App = () => {
     );
 };
 
-// --- ALT BİLEŞENLER ---
+// --- BİLEŞENLER ---
 
 const Sidebar = ({ activeTab, setActiveTab }) => (
     <div className="fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-xl border-t border-white/5 flex justify-around p-2 md:relative md:w-64 md:h-screen md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 z-50 no-print">
@@ -169,14 +176,13 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
         <NavItem icon="users" label="Öğrenciler" active={activeTab === 'students'} onClick={() => setActiveTab('students')} />
         <NavItem icon="bar-chart-3" label="İstatistik" active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} />
         <NavItem icon="wallet" label="Muhasebe" active={activeTab === 'accounting'} onClick={() => setActiveTab('accounting')} />
-        
         <div className="hidden md:block mt-auto p-4">
             <div className="bg-slate-800/30 rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500 animate-pulse"></div>
-                    <span className="text-[10px] font-black text-green-500 tracking-widest uppercase">Canlı Senkronize</span>
+                    <span className="text-[10px] font-black text-green-500 tracking-widest uppercase">Canlı</span>
                 </div>
-                <p className="text-[9px] text-slate-500 font-medium leading-relaxed">Verileriniz anlık olarak bulut üzerine yedekleniyor.</p>
+                <p className="text-[9px] text-slate-500 font-medium leading-relaxed">Veri tabanı temizlendi ve senkronizasyon v13 sürümüne yükseltildi.</p>
             </div>
         </div>
     </div>
@@ -211,8 +217,7 @@ const CalendarTab = ({ students, lessons, onSaveLesson, onDeleteLesson }) => {
         <div className="p-4 md:p-10 pb-24 md:pb-10 h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 no-print">
                 <div>
-                    <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">Ders Programı</h1>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Haftalık Planlama</p>
+                    <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase underline decoration-blue-500/50 underline-offset-8">Program</h1>
                 </div>
                 <div className="flex bg-slate-900/50 border border-white/5 rounded-2xl p-1.5 items-center backdrop-blur-md shadow-xl">
                     <button onClick={() => {
@@ -252,14 +257,14 @@ const CalendarTab = ({ students, lessons, onSaveLesson, onDeleteLesson }) => {
                                                 <div className="text-[13px] font-black text-white truncate leading-tight">
                                                     {student ? student.name : <span className="text-red-500 italic opacity-50">Silinmiş Öğrenci</span>}
                                                 </div>
-                                                <div className="text-[9px] text-slate-500 font-bold uppercase truncate mt-1 tracking-wider">
-                                                    {Array.isArray(lesson.branches) ? lesson.branches.join(' • ') : (lesson.branch || 'Branş Belirtilmedi')}
+                                                <div className="text-[9px] text-slate-500 font-bold uppercase truncate mt-1 tracking-wider opacity-70">
+                                                    {Array.isArray(lesson.branches) ? lesson.branches.join(' • ') : (lesson.branch || 'Branş Yok')}
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <button onClick={() => { setActiveDayForAdd(day); setEditingLesson(null); setIsModalOpen(true); }} className="m-4 py-3 rounded-[1.2rem] bg-slate-800/40 hover:bg-slate-700/60 text-slate-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-dashed border-white/10">+ Ders</button>
+                                <button onClick={() => { setActiveDayForAdd(day); setEditingLesson(null); setIsModalOpen(true); }} className="m-4 py-3 rounded-[1.2rem] bg-slate-800/40 hover:bg-slate-700/60 text-slate-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-dashed border-white/10">+ Ders Ekle</button>
                             </div>
                         );
                     })}
@@ -277,7 +282,10 @@ const CalendarTab = ({ students, lessons, onSaveLesson, onDeleteLesson }) => {
 };
 
 const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete }) => {
-    const [form, setForm] = useState(lesson ? { ...lesson } : {
+    const [form, setForm] = useState(lesson ? { 
+        ...lesson, 
+        branches: lesson.branches || [] 
+    } : {
         studentId: '', date: initialDate, time: '09:00', branches: [],
         notes: '', emotion: '😐', attendance: 'bekliyor'
     });
@@ -288,7 +296,7 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
             <div className="bg-slate-900 w-full max-w-3xl rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
                 <div className="flex justify-between items-center mb-10">
-                    <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">{lesson ? 'Kayıt Düzenle' : 'Ders Kaydı Oluştur'}</h2>
+                    <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">{lesson ? 'Güncelle' : 'Yeni Ders'}</h2>
                     <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full transition"><i className="lucide-x w-6 h-6"></i></button>
                 </div>
                 
@@ -296,14 +304,10 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
                     <div className="space-y-6">
                         <div>
                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">ÖĞRENCİ</label>
-                            {students.length === 0 ? (
-                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[10px] font-bold text-amber-500">Önce öğrenciler sekmesinden öğrenci eklemelisiniz.</div>
-                            ) : (
-                                <select className="w-full bg-slate-800/50 border border-white/5 p-4 rounded-2xl text-sm font-black text-white focus:ring-2 ring-blue-500/20 outline-none cursor-pointer" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}>
-                                    <option value="">Lütfen Bir Öğrenci Seçin</option>
-                                    {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade}. Sınıf)</option>)}
-                                </select>
-                            )}
+                            <select className="w-full bg-slate-800/50 border border-white/5 p-4 rounded-2xl text-sm font-black text-white outline-none cursor-pointer" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}>
+                                <option value="">Öğrenci Seçin</option>
+                                {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade}. Sınıf)</option>)}
+                            </select>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
@@ -322,10 +326,10 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
                             <div className="flex flex-wrap gap-2">
                                 {BRANCHES.map(b => (
                                     <button key={b} onClick={() => {
-                                        const branches = form.branches || [];
-                                        const exists = branches.includes(b);
-                                        setForm({...form, branches: exists ? branches.filter(x => x !== b) : [...branches, b]})
-                                    }} className={`px-3 py-2 rounded-xl text-[10px] font-black transition-all ${form.branches?.includes(b) ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-800 text-slate-500 border border-white/5'}`}>{b}</button>
+                                        const bArray = form.branches || [];
+                                        const exists = bArray.includes(b);
+                                        setForm({...form, branches: exists ? bArray.filter(x => x !== b) : [...bArray, b]})
+                                    }} className={`px-3 py-2 rounded-xl text-[10px] font-black transition-all ${form.branches?.includes(b) ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500 border border-white/5'}`}>{b}</button>
                                 ))}
                             </div>
                         </div>
@@ -333,15 +337,15 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
 
                     <div className="space-y-6">
                         <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">DERS İÇERİĞİ / NOTLAR</label>
-                            <textarea className="w-full bg-slate-800/50 border border-white/5 p-5 rounded-2xl h-32 text-xs font-medium focus:ring-2 ring-blue-500/20 outline-none transition" placeholder="Yapılan çalışmalar ve ödevleri buraya not edin..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">DERS NOTU</label>
+                            <textarea className="w-full bg-slate-800/50 border border-white/5 p-5 rounded-2xl h-32 text-xs font-medium focus:ring-2 ring-blue-500/20 outline-none transition" placeholder="İçerik..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">ÖĞRENCİ MODU</label>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">MOD</label>
                             <div className="flex justify-between bg-slate-800/30 p-2 rounded-[1.5rem] border border-white/5">
                                 {EMOTIONS_MAP.map(e => (
-                                    <button key={e.label} onClick={() => setForm({...form, emotion: e.icon})} className={`w-12 h-12 flex items-center justify-center rounded-xl text-xl transition-all ${form.emotion === e.icon ? 'bg-blue-600 shadow-lg shadow-blue-500/30 scale-110' : 'hover:bg-slate-800 opacity-40'}`}>{e.icon}</button>
+                                    <button key={e.label} onClick={() => setForm({...form, emotion: e.icon})} className={`w-12 h-12 flex items-center justify-center rounded-xl text-xl transition-all ${form.emotion === e.icon ? 'bg-blue-600 scale-110' : 'hover:bg-slate-800 opacity-40'}`}>{e.icon}</button>
                                 ))}
                             </div>
                         </div>
@@ -355,12 +359,12 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
                 </div>
 
                 <div className="mt-12 pt-8 border-t border-white/5 flex flex-wrap gap-4 items-center justify-between">
-                    <div className="text-[10px] font-black text-slate-500 italic">
-                        {currentStudent ? `SİSTEMDE KAYITLI ÜCRET: ${currentStudent.unitPrice} ₺` : 'Kayıt için öğrenci seçilmeli'}
+                    <div className="text-[10px] font-black text-slate-500">
+                        {currentStudent ? `BİRİM: ${currentStudent.unitPrice} ₺` : 'Öğrenci seçin'}
                     </div>
                     <div className="flex gap-4">
-                        {lesson && <button onClick={() => {onDelete(lesson.id); onClose();}} className="px-8 py-4 text-red-500 text-[11px] font-black hover:bg-red-500/10 rounded-2xl transition uppercase">DERSİ SİL</button>}
-                        <button disabled={!form.studentId} onClick={() => {onSave(form); onClose();}} className={`px-14 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl ${!form.studentId ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20 active:scale-95'}`}>DERSİ KAYDET</button>
+                        {lesson && <button onClick={() => {onDelete(lesson.id); onClose();}} className="px-8 py-4 text-red-500 text-[11px] font-black hover:bg-red-500/10 rounded-2xl transition uppercase">SİL</button>}
+                        <button disabled={!form.studentId} onClick={() => {onSave(form); onClose();}} className={`px-14 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl ${!form.studentId ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'}`}>KAYDET</button>
                     </div>
                 </div>
             </div>
@@ -375,24 +379,21 @@ const StudentsTab = ({ students, priceLogs, onSaveStudent, onDeleteStudent }) =>
     return (
         <div className="p-4 md:p-10">
             <div className="flex justify-between items-center mb-10">
-                <div>
-                    <h1 className="text-3xl font-black italic tracking-tighter uppercase">Öğrenciler</h1>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">{students.length} Kayıtlı Öğrenci</p>
-                </div>
-                <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 transition-all">+ Yeni Öğrenci</button>
+                <h1 className="text-3xl font-black italic tracking-tighter uppercase underline decoration-blue-500/50 underline-offset-8">Öğrenciler</h1>
+                <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 transition-all">+ Ekle</button>
             </div>
 
             {students.length === 0 ? (
                 <div className="h-[400px] flex flex-col items-center justify-center bg-slate-900/20 border-2 border-dashed border-white/5 rounded-[3rem]">
                     <i className="lucide-users w-12 h-12 text-slate-800 mb-4"></i>
-                    <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">Henüz hiçbir öğrenci kaydı yok.</p>
+                    <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">Henüz öğrenci kaydı yok.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {students.map(student => (
-                        <div key={student.id} onClick={() => { setEditingStudent(student); setIsModalOpen(true); }} className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-white/5 hover:border-blue-500/40 transition-all cursor-pointer group hover:bg-slate-900 shadow-sm">
+                        <div key={student.id} onClick={() => { setEditingStudent(student); setIsModalOpen(true); }} className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-white/5 hover:border-blue-500/40 transition-all cursor-pointer group hover:bg-slate-900">
                             <div className="flex items-center gap-5">
-                                <div className="w-16 h-16 bg-slate-800 rounded-[1.2rem] overflow-hidden flex items-center justify-center border border-white/5">
+                                <div className="w-16 h-16 bg-slate-800 rounded-[1.2rem] overflow-hidden flex items-center justify-center border border-white/5 shadow-inner">
                                     {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : <i className="lucide-user w-6 h-6 text-slate-600"></i>}
                                 </div>
                                 <div className="flex-1">
@@ -425,34 +426,37 @@ const StudentModal = ({ student, onClose, onSave, onDelete, logs }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
             <div className="bg-slate-900 w-full max-w-lg rounded-[2.5rem] p-10 border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
-                <div className="flex justify-between items-center mb-10">
-                    <h2 className="text-2xl font-black italic uppercase">{student ? 'Düzenle' : 'Öğrenci Kayıt'}</h2>
-                    <button onClick={onClose} className="p-2 text-slate-500"><i className="lucide-x w-6 h-6"></i></button>
-                </div>
-                
+                <h2 className="text-2xl font-black italic uppercase mb-10">{student ? 'Düzenle' : 'Yeni Kayıt'}</h2>
                 <div className="space-y-6">
                     <div className="flex flex-col items-center">
-                        <div className="w-24 h-24 bg-slate-800 rounded-3xl mb-3 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden">
+                        <div className="w-24 h-24 bg-slate-800 rounded-3xl mb-3 border border-dashed border-white/10 flex items-center justify-center overflow-hidden">
                             {form.photo ? <img src={form.photo} className="w-full h-full object-cover" /> : <i className="lucide-camera w-6 h-6 opacity-20"></i>}
                         </div>
                         <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest cursor-pointer hover:underline">FOTOĞRAF SEÇ<input type="file" className="hidden" accept="image/*" onChange={handlePhoto} /></label>
                     </div>
-
-                    <input type="text" className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none" placeholder="ÖĞRENCİ ADI SOYADI" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                    
+                    <input type="text" className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none" placeholder="AD SOYAD" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                     <div className="grid grid-cols-2 gap-4">
                         <select className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none cursor-pointer" value={form.grade} onChange={e => setForm({...form, grade: parseInt(e.target.value)})}>
                             {GRADES.map(g => <option key={g} value={g}>{g}. SINIF</option>)}
                         </select>
-                        <input type="number" className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none text-emerald-500" placeholder="ÜCRET (₺)" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value) || 0})} />
+                        <input type="number" className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none text-emerald-500" placeholder="₺" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value) || 0})} />
                     </div>
-
                     <textarea className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 h-24 text-xs outline-none" placeholder="NOTLAR..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
                 </div>
-
+                {logs?.length > 0 && (
+                    <div className="mt-6 p-4 bg-slate-950 rounded-2xl border border-white/5">
+                        <span className="text-[8px] font-black text-slate-600 block mb-2 tracking-widest uppercase">Fiyat Geçmişi</span>
+                        {logs.slice(-3).map(log => (
+                            <div key={log.id} className="text-[10px] flex justify-between text-slate-400 font-bold mb-1">
+                                <span>{log.date}</span>
+                                <span>{log.oldPrice} → {log.newPrice} ₺</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <div className="mt-10 flex gap-4 pt-8 border-t border-white/5">
                     {student && <button onClick={() => {onDelete(student.id); onClose();}} className="px-6 py-4 text-red-500 font-black text-[10px] uppercase">SİL</button>}
-                    <button onClick={() => { if(form.name) {onSave(form); onClose();} }} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest ${!form.name ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white shadow-xl shadow-blue-600/20'}`}>KAYDI TAMAMLA</button>
+                    <button onClick={() => { if(form.name) {onSave(form); onClose();} }} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all ${!form.name ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white shadow-blue-600/20'}`}>KAYDET</button>
                 </div>
             </div>
         </div>
@@ -461,35 +465,31 @@ const StudentModal = ({ student, onClose, onSave, onDelete, logs }) => {
 
 const StatisticsTab = ({ lessons, students }) => {
     const stats = useMemo(() => {
-        const completed = lessons.filter(l => l.attendance === 'geldi');
+        const completed = lessons?.filter(l => l.attendance === 'geldi') || [];
         const total = completed.length;
         const branchCounts = {};
         completed.forEach(l => {
-            const list = Array.isArray(l.branches) ? l.branches : (l.branch ? [l.branch] : []);
-            list.forEach(b => {
-                if(b) branchCounts[b] = (branchCounts[b] || 0) + 1;
-            });
+            const list = Array.isArray(l.branches) ? l.branches : [];
+            list.forEach(b => { if(b) branchCounts[b] = (branchCounts[b] || 0) + 1; });
         });
         return { total, branchCounts };
     }, [lessons]);
 
-    if (stats.total === 0) return (
-        <div className="p-10 h-full flex items-center justify-center text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Analiz edilecek veri bulunmuyor.</div>
-    );
+    if (!stats.total) return <div className="p-10 h-full flex items-center justify-center text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Analiz edilecek veri yok.</div>;
 
     return (
         <div className="p-10">
-            <h1 className="text-3xl font-black italic mb-10 uppercase tracking-tighter">İstatistikler</h1>
+            <h1 className="text-3xl font-black italic mb-10 uppercase tracking-tighter underline underline-offset-8 decoration-blue-500/50">İstatistik</h1>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">BİTEN DERS SAYISI</span>
+                <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 shadow-2xl">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">BİTEN DERSLER</span>
                     <div className="text-5xl font-black text-blue-500">{stats.total}</div>
                 </div>
                 <div className="md:col-span-2 bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">BRANŞ DAĞILIMI</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">BRANŞLAR</span>
                     <div className="flex flex-wrap gap-3">
                         {Object.entries(stats.branchCounts).map(([branch, count]) => (
-                            <div key={branch} className="bg-slate-800 px-4 py-3 rounded-2xl border border-white/5 flex items-center gap-3">
+                            <div key={branch} className="bg-slate-800 px-4 py-3 rounded-2xl border border-white/5 flex items-center gap-3 shadow-inner">
                                 <span className="text-xs font-black text-white">{branch}</span>
                                 <span className="text-xs font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-lg">{count}</span>
                             </div>
@@ -505,50 +505,45 @@ const AccountingTab = ({ lessons, students }) => {
     const report = useMemo(() => {
         let earned = 0;
         let pending = 0;
-        
-        lessons.forEach(l => {
-            if(l.attendance === 'geldi') {
-                earned += (l.priceAtTime || 0);
-            } else if(l.attendance === 'bekliyor') {
+        lessons?.forEach(l => {
+            if(l.attendance === 'geldi') earned += (parseFloat(l.priceAtTime) || 0);
+            else if(l.attendance === 'bekliyor') {
                 const s = students.find(st => st.id === l.studentId);
                 pending += (s ? parseFloat(s.unitPrice) : 0);
             }
         });
-
         const studentDebt = {};
-        students.forEach(s => {
+        students?.forEach(s => {
             const sLessons = lessons.filter(l => l.studentId === s.id && l.attendance === 'geldi');
-            studentDebt[s.name] = sLessons.reduce((acc, curr) => acc + (curr.priceAtTime || 0), 0);
+            studentDebt[s.name] = sLessons.reduce((acc, curr) => acc + (parseFloat(curr.priceAtTime) || 0), 0);
         });
-
         return { earned, pending, studentDebt };
     }, [lessons, students]);
 
     return (
         <div className="p-10">
-            <h1 className="text-3xl font-black italic mb-10 uppercase tracking-tighter">Muhasebe</h1>
+            <h1 className="text-3xl font-black italic mb-10 uppercase tracking-tighter underline underline-offset-8 decoration-emerald-500/50">Muhasebe</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                <div className="bg-emerald-500/10 p-10 rounded-[2.5rem] border border-emerald-500/20 shadow-2xl shadow-emerald-500/5">
+                <div className="bg-emerald-500/10 p-10 rounded-[3rem] border border-emerald-500/20 shadow-2xl shadow-emerald-500/5">
                     <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest block mb-2">TOPLAM KAZANÇ</span>
                     <div className="text-6xl font-black text-white">{report.earned.toLocaleString()} ₺</div>
                 </div>
-                <div className="bg-amber-500/10 p-10 rounded-[2.5rem] border border-amber-500/20 shadow-2xl shadow-amber-500/5">
-                    <span className="text-[11px] font-black text-amber-500 uppercase tracking-widest block mb-2">TAHMİNİ GELECEK</span>
+                <div className="bg-amber-500/10 p-10 rounded-[3rem] border border-amber-500/20 shadow-2xl shadow-amber-500/5">
+                    <span className="text-[11px] font-black text-amber-500 uppercase tracking-widest block mb-2">GELECEK POTANSİYEL</span>
                     <div className="text-6xl font-black text-white">{report.pending.toLocaleString()} ₺</div>
                 </div>
             </div>
-
-            <div className="bg-slate-900/50 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-xl">
-                <div className="p-8 border-b border-white/5 bg-slate-900/80"><h2 className="text-lg font-black italic">Öğrenci Bazlı Toplamlar</h2></div>
+            <div className="bg-slate-900/50 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
+                <div className="p-8 border-b border-white/5 bg-slate-900/80 uppercase font-black tracking-widest text-[10px] text-slate-500">Tahsilat Detayları</div>
                 <div className="divide-y divide-white/5">
-                    {Object.entries(report.studentDebt).length === 0 ? (
-                        <div className="p-10 text-center text-[10px] font-black text-slate-700 uppercase">Görüntülenecek veri yok.</div>
-                    ) : Object.entries(report.studentDebt).sort((a,b) => b[1] - a[1]).map(([name, amount]) => (
-                        <div key={name} className="flex justify-between items-center p-6 hover:bg-slate-800/30 transition-colors">
-                            <span className="text-sm font-black text-slate-300 tracking-tight">{name}</span>
-                            <span className="text-lg font-black text-white">{amount.toLocaleString()} ₺</span>
-                        </div>
-                    ))}
+                    {!Object.keys(report.studentDebt).length ? <div className="p-10 text-center text-slate-700 italic text-xs">Kayıt bulunmuyor</div> : 
+                        Object.entries(report.studentDebt).sort((a,b) => b[1] - a[1]).map(([name, amount]) => (
+                            <div key={name} className="flex justify-between items-center p-6 hover:bg-slate-800/30 transition-all">
+                                <span className="text-sm font-black text-slate-300">{name}</span>
+                                <span className="text-lg font-black text-white">{amount.toLocaleString()} ₺</span>
+                            </div>
+                        ))
+                    }
                 </div>
             </div>
         </div>

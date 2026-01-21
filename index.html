@@ -18,19 +18,13 @@
         .lesson-attended { border-left: 4px solid #10b981; background: rgba(16, 185, 129, 0.1); }
         .lesson-absent { border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.1); }
         .lesson-pending { border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.1); }
-        
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
-
         @media print { .no-print { display: none !important; } }
-        
         .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.75rem; }
         @media (max-width: 768px) { .calendar-grid:not(.exporting) { grid-template-columns: 1fr; } }
         .exporting.calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; width: 1120px !important; padding: 20px !important; }
-
-        .btn-primary { @apply bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl transition shadow-lg shadow-blue-500/20 active:scale-95; }
     </style>
 </head>
 <body>
@@ -39,7 +33,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- KONFİGÜRASYON ---
         const API_URL = "https://script.google.com/macros/s/AKfycbzzIH-BxBk4JSrB-5S2o6aQkPQ8D-GXphOnrOnAQJ4yZCzthc7IVvBhRgkiIEd8ZfY/exec"; 
 
         const BRANCHES = ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"];
@@ -60,18 +53,20 @@
             const [priceLogs, setPriceLogs] = useState([]);
             const [loading, setLoading] = useState(false);
 
-            // --- VERİ YÜKLEME ---
+            // Veri Çekme
             const fetchData = async () => {
                 setLoading(true);
                 try {
                     const response = await fetch(API_URL);
                     const data = await response.json();
-                    setStudents(data.students || []);
-                    setLessons(data.lessons || []);
-                    setTransactions(data.transactions || []);
-                    setPriceLogs(data.priceLogs || []);
+                    if (data && data.students) {
+                        setStudents(data.students || []);
+                        setLessons(data.lessons || []);
+                        setTransactions(data.transactions || []);
+                        setPriceLogs(data.priceLogs || []);
+                        localStorage.setItem('eys_backup', JSON.stringify(data));
+                    }
                 } catch (err) {
-                    console.error("Veri yüklenemedi, yerel veriye dönülüyor.");
                     const saved = localStorage.getItem('eys_backup');
                     if (saved) {
                         const p = JSON.parse(saved);
@@ -83,7 +78,7 @@
                 } finally { setLoading(false); }
             };
 
-            // --- VERİ SENKRONİZASYONU ---
+            // Senkronizasyon
             const syncData = async (updatedData) => {
                 localStorage.setItem('eys_backup', JSON.stringify(updatedData));
                 setLoading(true);
@@ -93,14 +88,19 @@
                         body: JSON.stringify({ action: 'syncAll', data: updatedData })
                     });
                 } catch (err) {
-                    console.error("Senkronizasyon hatası:", err);
+                    console.error("Senkronizasyon hatası");
                 } finally { setLoading(false); }
             };
 
             useEffect(() => { fetchData(); }, []);
 
             const handleUpdate = (type, newData) => {
-                const updated = { students, lessons, transactions, priceLogs, [type]: newData };
+                const updated = {
+                    students: type === 'students' ? newData : students,
+                    lessons: type === 'lessons' ? newData : lessons,
+                    transactions: type === 'transactions' ? newData : transactions,
+                    priceLogs: type === 'priceLogs' ? newData : priceLogs
+                };
                 if(type === 'students') setStudents(newData);
                 if(type === 'lessons') setLessons(newData);
                 if(type === 'transactions') setTransactions(newData);
@@ -113,35 +113,20 @@
                 if (!element) return;
                 const isCalendar = elementId === 'calendar-render';
                 if (isCalendar) element.classList.add('exporting');
-
                 const opt = {
                     margin: 5, filename: fileName, image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, useCORS: true, backgroundColor: '#020617', width: orientation === 'landscape' ? 1120 : 794 },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: orientation }
                 };
-
                 html2pdf().set(opt).from(element).save().then(() => {
                     if (isCalendar) element.classList.remove('exporting');
                 });
             };
 
-            const getWeekDays = (baseDate) => {
-                const date = new Date(baseDate);
-                const day = date.getDay();
-                const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-                const monday = new Date(date.setDate(diff));
-                return Array.from({length: 7}, (_, i) => {
-                    const d = new Date(monday);
-                    d.setDate(monday.getDate() + i);
-                    return d.toISOString().split('T')[0];
-                });
-            };
-
-            // --- BİLEŞENLER ---
             const Sidebar = () => (
                 <div className="fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex justify-around p-2 md:relative md:w-64 md:h-screen md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 z-50 no-print">
                     <div className="hidden md:flex items-center gap-3 p-6 mb-4">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg"><i className="lucide-graduation-cap w-5 h-5 text-white"></i></div>
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20"><i className="lucide-graduation-cap w-5 h-5 text-white"></i></div>
                         <span className="text-xl font-black text-white tracking-tight italic uppercase">PROEĞİTİM</span>
                     </div>
                     <NavItem icon="calendar" label="Takvim" active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
@@ -158,10 +143,18 @@
                 </button>
             );
 
-            // --- TAB: TAKVİM ---
             const CalendarTab = () => {
                 const [baseDate, setBaseDate] = useState(new Date().toISOString().split('T')[0]);
-                const weekDays = useMemo(() => getWeekDays(baseDate), [baseDate]);
+                const weekDays = useMemo(() => {
+                    const date = new Date(baseDate);
+                    const day = date.getDay();
+                    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                    const monday = new Date(date.setDate(diff));
+                    return Array.from({length: 7}, (_, i) => {
+                        const d = new Date(monday); d.setDate(monday.getDate() + i);
+                        return d.toISOString().split('T')[0];
+                    });
+                }, [baseDate]);
                 const [isModalOpen, setIsModalOpen] = useState(false);
                 const [editingLesson, setEditingLesson] = useState(null);
                 const [activeDayForAdd, setActiveDayForAdd] = useState(null);
@@ -169,17 +162,16 @@
                 return (
                     <div className="p-4 md:p-6 lg:p-8 pb-24 md:pb-8 flex flex-col h-full overflow-hidden animate-in fade-in">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 no-print">
-                            <div><h1 className="text-2xl md:text-3xl font-black text-white italic tracking-tight">Haftalık Takvim</h1><p className="text-slate-500 text-sm font-medium uppercase tracking-widest italic">Ders Akışı ve Raporlama</p></div>
+                            <div><h1 className="text-2xl md:text-3xl font-black text-white italic tracking-tight">Haftalık Takvim</h1><p className="text-slate-500 text-sm font-medium uppercase tracking-widest italic">Ders Planlama ve Takip</p></div>
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 shadow-inner">
-                                    <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() - 7); setBaseDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><i className="lucide-chevron-left w-5 h-5"></i></button>
-                                    <input type="date" className="bg-transparent px-2 text-sm font-bold text-white outline-none" value={baseDate} onChange={(e) => setBaseDate(e.target.value)} />
-                                    <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() + 7); setBaseDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><i className="lucide-chevron-right w-5 h-5"></i></button>
+                                    <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() - 7); setBaseDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i className="lucide-chevron-left w-5 h-5"></i></button>
+                                    <input type="date" className="bg-transparent px-2 text-sm font-bold text-white outline-none cursor-pointer" value={baseDate} onChange={(e) => setBaseDate(e.target.value)} />
+                                    <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() + 7); setBaseDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i className="lucide-chevron-right w-5 h-5"></i></button>
                                 </div>
-                                <button onClick={() => exportPDF('calendar-render', 'landscape', 'Haftalik_Program.pdf')} className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 transition shadow-sm uppercase italic"><i className="lucide-printer w-4 h-4 text-blue-400"></i> RAPOR AL</button>
+                                <button onClick={() => exportPDF('calendar-render', 'landscape', 'Haftalik_Rapor.pdf')} className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 uppercase italic tracking-tighter"><i className="lucide-printer w-4 h-4 text-blue-400"></i> RAPOR AL</button>
                             </div>
                         </div>
-
                         <div className="flex-1 overflow-x-auto custom-scrollbar pb-2">
                             <div id="calendar-render" className="calendar-grid h-full min-h-[600px]">
                                 {weekDays.map((day) => {
@@ -187,7 +179,7 @@
                                     const dateObj = new Date(day);
                                     const isToday = day === new Date().toISOString().split('T')[0];
                                     return (
-                                        <div key={day} className={`flex flex-col h-full rounded-2xl border transition-colors ${isToday ? 'bg-blue-600/[0.03] border-blue-500/30 ring-1 ring-blue-500/10' : 'bg-slate-900/40 border-slate-800/60'}`}>
+                                        <div key={day} className={`flex flex-col h-full rounded-2xl border transition-colors ${isToday ? 'bg-blue-600/[0.03] border-blue-500/30 ring-1' : 'bg-slate-900/40 border-slate-800/60'}`}>
                                             <div className={`p-4 text-center border-b border-slate-800/50 ${isToday ? 'bg-blue-600/5' : ''}`}>
                                                 <div className={`text-[10px] uppercase font-black tracking-widest ${isToday ? 'text-blue-400' : 'text-slate-500'}`}>{dateObj.toLocaleDateString('tr-TR', { weekday: 'long' })}</div>
                                                 <div className={`text-xl font-black mt-0.5 ${isToday ? 'text-blue-500' : 'text-slate-200'}`}>{dateObj.getDate()}</div>
@@ -197,7 +189,7 @@
                                                     const student = students.find(s => s.id === lesson.studentId);
                                                     return (
                                                         <div key={lesson.id} onClick={() => { setEditingLesson(lesson); setIsModalOpen(true); }} className={`p-3 rounded-xl cursor-pointer transition-all hover:translate-y-[-2px] hover:shadow-lg border border-transparent hover:border-white/10 ${lesson.attendance === 'geldi' ? 'lesson-attended' : lesson.attendance === 'gelmedi' ? 'lesson-absent' : 'lesson-pending'}`}>
-                                                            <div className="flex justify-between items-start mb-1"><span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded leading-none">{lesson.time}</span><span className="text-xs">{lesson.emotion}</span></div>
+                                                            <div className="flex justify-between items-start mb-1"><span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded leading-none italic">{lesson.time}</span><span className="text-xs">{lesson.emotion}</span></div>
                                                             <div className="text-xs font-black text-slate-100 truncate mb-0.5">{student?.name || 'Belirsiz'}</div>
                                                             <div className="text-[9px] text-slate-500 font-bold uppercase truncate">{Array.isArray(lesson.branches) ? lesson.branches.join(', ') : lesson.branch}</div>
                                                         </div>
@@ -205,14 +197,13 @@
                                                 })}
                                             </div>
                                             <div className="p-2 no-print">
-                                                <button onClick={() => { setActiveDayForAdd(day); setEditingLesson(null); setIsModalOpen(true); }} className="w-full py-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-700/60 text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider border border-dashed border-slate-700"><i className="lucide-plus w-3 h-3 text-blue-500"></i> Ders Ekle</button>
+                                                <button onClick={() => { setActiveDayForAdd(day); setEditingLesson(null); setIsModalOpen(true); }} className="w-full py-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-700/60 text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2 text-[10px] font-black border border-dashed border-slate-700 italic tracking-tighter uppercase"><i className="lucide-plus w-3 h-3 text-blue-500"></i> Ders Ekle</button>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-
                         {isModalOpen && (
                             <LessonModal 
                                 lesson={editingLesson} students={students} initialDate={activeDayForAdd} onClose={() => setIsModalOpen(false)} 
@@ -233,35 +224,21 @@
                     ...lesson,
                     branches: Array.isArray(lesson.branches) ? lesson.branches : (lesson.branch ? [lesson.branch] : []),
                     media: lesson.media || [],
-                    tests: lesson.tests || (lesson.testData?.q ? [{ ...lesson.testData, id: Date.now() }] : [])
+                    tests: lesson.tests || []
                 } : {
                     studentId: '', date: initialDate, time: '09:00', branches: [],
                     notes: '', reminders: '', tests: [], readingData: { wpm: '', comp: '' },
                     emotion: EMOTIONS_MAP[2].icon, attendance: 'bekliyor', media: []
                 });
-
                 const currentStudent = students.find(s => s.id === form.studentId);
-
-                const toggleBranch = (b) => {
-                    setForm(prev => {
-                        const exists = prev.branches.includes(b);
-                        const newBranches = exists ? prev.branches.filter(item => item !== b) : [...prev.branches, b];
-                        return { ...prev, branches: newBranches };
-                    });
-                };
-
+                const toggleBranch = (b) => setForm(prev => ({ ...prev, branches: prev.branches.includes(b) ? prev.branches.filter(i => i !== b) : [...prev.branches, b] }));
                 const handleFileUpload = (e) => {
-                    const files = Array.from(e.target.files);
-                    files.forEach(file => {
+                    const file = e.target.files[0];
+                    if (file) {
                         const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            setForm(prev => ({
-                                ...prev,
-                                media: [...prev.media, { id: Date.now() + Math.random(), type: file.type.startsWith('video') ? 'video' : 'image', data: ev.target.result }]
-                            }));
-                        };
+                        reader.onload = (ev) => setForm(prev => ({ ...prev, media: [...prev.media, { id: Date.now(), type: file.type.startsWith('video') ? 'video' : 'image', data: ev.target.result }] }));
                         reader.readAsDataURL(file);
-                    });
+                    }
                 };
 
                 return (
@@ -274,55 +251,49 @@
                                     <button onClick={onClose} className="p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition border border-slate-700 shadow-inner"><i className="lucide-x w-5 h-5"></i></button>
                                 </div>
                             </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-4">
-                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic tracking-widest">Öğrenci</label><select className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none shadow-inner" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}><option value="">Öğrenci Seçin</option>{students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-2 ml-1 italic tracking-widest">Branşlar</label><div className="flex flex-wrap gap-1.5 p-3 bg-slate-800/50 rounded-2xl border border-slate-800 shadow-inner">{BRANCHES.map(b => (<button key={b} onClick={() => toggleBranch(b)} className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition ${form.branches.includes(b) ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{b.toUpperCase()}</button>))}</div></div>
+                                    <div><label className="block text-[10px] font-black text-slate-500 uppercase italic tracking-widest mb-1 ml-1">Öğrenci Seçimi</label><select className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}><option value="">Öğrenci Seçin</option>{students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                                    <div><label className="block text-[10px] font-black text-slate-500 uppercase italic tracking-widest mb-1 ml-1">Branşlar</label><div className="flex flex-wrap gap-1.5 p-3 bg-slate-800/50 rounded-2xl border border-slate-800 shadow-inner">{BRANCHES.map(b => (<button key={b} onClick={() => toggleBranch(b)} className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition ${form.branches.includes(b) ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{b.toUpperCase()}</button>))}</div></div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1 ml-1 italic tracking-widest">Saat</label><input type="time" className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none shadow-inner" value={form.time} onChange={e => setForm({...form, time: e.target.value})} /></div>
-                                        <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1 ml-1 italic tracking-widest">Tarih</label><input type="date" className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none shadow-inner" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
+                                        <input type="time" className="bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none shadow-inner" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                                        <input type="date" className="bg-slate-800 border border-slate-700 p-3 rounded-xl font-bold text-sm outline-none shadow-inner" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                                     </div>
                                     <textarea placeholder="Ders Notları..." className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl h-24 text-xs font-medium focus:ring-1 focus:ring-blue-500 outline-none transition shadow-inner" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
-                                    <div className="no-print"><label className="block text-[10px] uppercase font-black text-slate-500 mb-2 ml-1 italic tracking-widest">Medya (Görsel/Video)</label><label className="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-800/50 hover:bg-slate-800 transition"><div className="flex items-center gap-2"><i className="lucide-upload-cloud w-4 h-4 text-slate-500"></i><span className="text-[10px] font-black text-slate-400 uppercase">Dosya Seç</span></div><input type="file" className="hidden" multiple accept="image/*,video/*" onChange={handleFileUpload} /></label></div>
+                                    <div className="no-print"><label className="block text-[10px] font-black text-slate-500 uppercase italic tracking-widest mb-1 ml-1 italic tracking-tighter">Medya Ekle</label><label className="flex flex-col items-center justify-center w-full h-16 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-800/50 hover:bg-slate-800 transition shadow-inner"><i className="lucide-upload-cloud w-4 h-4 text-slate-500"></i><input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} /></label></div>
                                 </div>
                                 <div className="space-y-4">
                                     <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 shadow-inner">
-                                        <div className="flex justify-between items-center mb-4"><h4 className="text-[10px] uppercase font-black text-blue-500 tracking-widest italic">Test Girişleri</h4><button onClick={() => setForm(prev => ({...prev, tests: [...prev.tests, {id: Date.now(), q:'', t:'', f:'', b:'', branch:''}]}))} className="text-[9px] font-black bg-blue-600/20 text-blue-400 px-2 py-1 rounded-lg uppercase">Ekle</button></div>
-                                        <div className="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                                            {form.tests.map((test, index) => (
+                                        <div className="flex justify-between items-center mb-4"><h4 className="text-[10px] uppercase font-black text-blue-500 tracking-widest italic tracking-tighter">Test Performansı</h4><button onClick={() => setForm(p => ({...p, tests: [...p.tests, {id: Date.now(), q:'', t:'', f:'', b:'', branch:''}]}))} className="text-[9px] font-black bg-blue-600/20 text-blue-400 px-2 py-1 rounded-lg uppercase italic tracking-tighter">Ekle</button></div>
+                                        <div className="space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                                            {form.tests.map((test) => (
                                                 <div key={test.id} className="p-3 bg-slate-800/40 rounded-xl border border-slate-700 relative group">
-                                                    <select className="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg font-bold text-[10px] mb-2 outline-none shadow-inner" value={test.branch} onChange={e => setForm(prev => ({...prev, tests: prev.tests.map(t => t.id === test.id ? {...t, branch: e.target.value} : t)}))}><option value="">Branş Seçin</option>{form.branches.map(b => <option key={b} value={b}>{b}</option>)}</select>
-                                                    <div className="grid grid-cols-4 gap-2">
-                                                        <div className="text-center"><span className="text-[8px] font-black text-slate-600 block mb-1 uppercase">Soru</span><input type="number" className="w-full bg-slate-900 border border-slate-700 p-1.5 rounded-lg text-center text-xs font-black outline-none" value={test.q} onChange={e => setForm(prev => ({...prev, tests: prev.tests.map(t => t.id === test.id ? {...t, q: e.target.value} : t)}))} /></div>
-                                                        <div className="text-center"><span className="text-[8px] font-black text-green-600 block mb-1 uppercase">D</span><input type="number" className="w-full bg-slate-900 border border-slate-700 p-1.5 rounded-lg text-center text-xs font-black text-green-400 outline-none" value={test.t} onChange={e => setForm(prev => ({...prev, tests: prev.tests.map(t => t.id === test.id ? {...t, t: e.target.value} : t)}))} /></div>
-                                                        <div className="text-center"><span className="text-[8px] font-black text-red-600 block mb-1 uppercase">Y</span><input type="number" className="w-full bg-slate-900 border border-slate-700 p-1.5 rounded-lg text-center text-xs font-black text-red-400 outline-none" value={test.f} onChange={e => setForm(prev => ({...prev, tests: prev.tests.map(t => t.id === test.id ? {...t, f: e.target.value} : t)}))} /></div>
-                                                        <div className="text-center"><span className="text-[8px] font-black text-slate-600 block mb-1 uppercase">B</span><input type="number" className="w-full bg-slate-900 border border-slate-700 p-1.5 rounded-lg text-center text-xs font-black outline-none" value={test.b} onChange={e => setForm(prev => ({...prev, tests: prev.tests.map(t => t.id === test.id ? {...t, b: e.target.value} : t)}))} /></div>
+                                                    <select className="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg font-bold text-[10px] mb-2 outline-none shadow-inner" value={test.branch} onChange={e => setForm(p => ({...p, tests: p.tests.map(t => t.id === test.id ? {...t, branch: e.target.value} : t)}))}><option value="">Branş Seçin</option>{form.branches.map(b => <option key={b} value={b}>{b}</option>)}</select>
+                                                    <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-black">
+                                                        <input type="number" placeholder="S" className="bg-slate-900 border border-slate-700 p-1 rounded outline-none" value={test.q} onChange={e => setForm(p => ({...p, tests: p.tests.map(t => t.id === test.id ? {...t, q: e.target.value} : t)}))} />
+                                                        <input type="number" placeholder="D" className="bg-slate-900 border border-slate-700 p-1 rounded outline-none text-green-400" value={test.t} onChange={e => setForm(p => ({...p, tests: p.tests.map(t => t.id === test.id ? {...t, t: e.target.value} : t)}))} />
+                                                        <input type="number" placeholder="Y" className="bg-slate-900 border border-slate-700 p-1 rounded outline-none text-red-400" value={test.f} onChange={e => setForm(p => ({...p, tests: p.tests.map(t => t.id === test.id ? {...t, f: e.target.value} : t)}))} />
+                                                        <input type="number" placeholder="B" className="bg-slate-900 border border-slate-700 p-1 rounded outline-none text-slate-400" value={test.b} onChange={e => setForm(p => ({...p, tests: p.tests.map(t => t.id === test.id ? {...t, b: e.target.value} : t)}))} />
                                                     </div>
-                                                    <button onClick={() => setForm(prev => ({...prev, tests: prev.tests.filter(t => t.id !== test.id)}))} className="absolute -top-1 -right-1 bg-red-600/20 text-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><i className="lucide-trash-2 w-3 h-3"></i></button>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                     <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 shadow-inner">
-                                        <h4 className="text-[10px] uppercase font-black text-green-500 mb-4 tracking-widest text-center italic">Hızlı Okuma</h4>
+                                        <h4 className="text-[10px] uppercase font-black text-green-500 mb-4 tracking-widest text-center italic tracking-tighter">Okuma Hızı</h4>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <div className="bg-slate-800 p-2.5 rounded-xl border border-slate-700 text-center"><span className="text-[8px] font-black text-slate-500 uppercase block mb-1 tracking-widest">K/Dk</span><input type="number" placeholder="-" className="bg-transparent w-full text-center font-black text-sm outline-none" value={form.readingData.wpm} onChange={e => setForm({...form, readingData: {...form.readingData, wpm: e.target.value}})} /></div>
-                                            <div className="bg-slate-800 p-2.5 rounded-xl border border-slate-700 text-center"><span className="text-[8px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Anlama %</span><input type="number" placeholder="-" className="bg-transparent w-full text-center font-black text-sm outline-none" value={form.readingData.comp} onChange={e => setForm({...form, readingData: {...form.readingData, comp: e.target.value}})} /></div>
+                                            <input type="number" placeholder="Kelime/Dak" className="bg-slate-800 p-2.5 rounded-xl text-center font-black text-sm outline-none shadow-inner" value={form.readingData.wpm} onChange={e => setForm({...form, readingData: {...form.readingData, wpm: e.target.value}})} />
+                                            <input type="number" placeholder="Anlama %" className="bg-slate-800 p-2.5 rounded-xl text-center font-black text-sm outline-none shadow-inner" value={form.readingData.comp} onChange={e => setForm({...form, readingData: {...form.readingData, comp: e.target.value}})} />
                                         </div>
                                     </div>
-                                    <textarea placeholder="Hatırlatıcılar..." className="w-full bg-slate-800 border border-yellow-500/20 p-4 rounded-xl h-24 text-xs font-medium italic text-yellow-500/80 outline-none transition shadow-inner" value={form.reminders} onChange={e => setForm({...form, reminders: e.target.value})}></textarea>
+                                    <textarea placeholder="Ödevler..." className="w-full bg-slate-800 border border-yellow-500/20 p-4 rounded-xl h-20 text-xs italic text-yellow-500/80 outline-none shadow-inner" value={form.reminders} onChange={e => setForm({...form, reminders: e.target.value})}></textarea>
                                 </div>
                             </div>
-
                             <div className="mt-8 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                                <div className="flex flex-col gap-3 w-full sm:w-auto">
-                                    <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest italic">Ruh Hali</label>
-                                    <div className="flex flex-wrap gap-2">{EMOTIONS_MAP.map(item => (<button key={item.label} onClick={() => setForm({...form, emotion: item.icon})} className={`flex flex-col items-center min-w-[65px] p-2 rounded-xl border transition-all ${form.emotion === item.icon ? 'bg-blue-600 border-blue-400 scale-105 shadow-lg shadow-blue-500/30' : 'bg-slate-800 border-slate-700 opacity-40 hover:opacity-100 shadow-sm'}`}><span className="text-xl">{item.icon}</span><span className="text-[8px] font-black uppercase mt-1 tracking-tighter">{item.label}</span></button>))}</div>
-                                </div>
-                                <div className="flex flex-col gap-3 w-full sm:w-auto">
-                                    <div className="flex bg-slate-950/40 p-1 rounded-xl border border-slate-800 self-end shadow-inner"><button onClick={() => setForm({...form, attendance: 'geldi'})} className={`px-5 py-2 rounded-lg text-[10px] font-black transition ${form.attendance === 'geldi' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-800'}`}>GELDİ</button><button onClick={() => setForm({...form, attendance: 'gelmedi'})} className={`px-4 py-2 rounded-lg text-[10px] font-black transition ${form.attendance === 'gelmedi' ? 'bg-red-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-800'}`}>GELMEDİ</button></div>
-                                    <div className="flex gap-3 no-print self-end">{lesson && <button onClick={() => onDelete(lesson.id)} className="px-6 py-3 text-red-500 text-[10px] font-black hover:bg-red-500/10 rounded-xl transition uppercase tracking-widest border border-red-500/10">SİL</button>}<button onClick={() => { const price = currentStudent?.unitPrice || 0; onSave({...form, priceAtTime: price}); }} className="px-12 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-xs shadow-xl shadow-blue-600/20 active:scale-95 transition uppercase tracking-widest italic">KAYDET</button></div>
+                                <div className="flex gap-2">{EMOTIONS_MAP.map(item => (<button key={item.label} onClick={() => setForm({...form, emotion: item.icon})} className={`flex flex-col items-center min-w-[65px] p-2 rounded-xl border transition-all ${form.emotion === item.icon ? 'bg-blue-600 border-blue-400 scale-105 shadow-lg shadow-blue-500/30' : 'bg-slate-800 border-slate-700 opacity-40 shadow-sm'}`}><span className="text-xl">{item.icon}</span><span className="text-[8px] font-black uppercase mt-1 italic tracking-tighter">{item.label}</span></button>))}</div>
+                                <div className="flex gap-3">
+                                    <div className="flex bg-slate-950/40 p-1 rounded-xl border border-slate-800 shadow-inner"><button onClick={() => setForm({...form, attendance: 'geldi'})} className={`px-5 py-2 rounded-lg text-[10px] font-black transition ${form.attendance === 'geldi' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-800'}`}>GELDİ</button><button onClick={() => setForm({...form, attendance: 'gelmedi'})} className={`px-4 py-2 rounded-lg text-[10px] font-black transition ${form.attendance === 'gelmedi' ? 'bg-red-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-800'}`}>GELMEDİ</button></div>
+                                    <button onClick={() => onSave({...form, priceAtTime: currentStudent?.unitPrice || 0})} className="px-12 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-xs shadow-xl active:scale-95 transition uppercase italic">KAYDET</button>
                                 </div>
                             </div>
                         </div>
@@ -330,20 +301,18 @@
                 );
             };
 
-            // --- TAB: ÖĞRENCİLER ---
             const StudentsTab = () => {
-                const [localQuery, setLocalQuery] = useState("");
+                const [q, setQ] = useState("");
                 const [isModalOpen, setIsModalOpen] = useState(false);
                 const [editingStudent, setEditingStudent] = useState(null);
-
-                const filtered = useMemo(() => students.filter(s => (s.name || '').toLowerCase().includes(localQuery.toLowerCase())), [students, localQuery]);
+                const filtered = useMemo(() => students.filter(s => (s.name || '').toLowerCase().includes(q.toLowerCase())), [students, q]);
 
                 return (
                     <div className="p-4 md:p-8 pb-24 h-full overflow-y-auto custom-scrollbar animate-in slide-in-from-right duration-500">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
-                            <div><h1 className="text-3xl font-black text-white italic tracking-tight">Öğrenci Yönetimi</h1><p className="text-slate-500 font-medium uppercase tracking-widest text-[10px] italic italic tracking-tighter">Profil ve Kayıt Listesi</p></div>
+                            <div><h1 className="text-3xl font-black text-white italic tracking-tight italic tracking-tighter">Öğrenci Yönetimi</h1><p className="text-slate-500 font-medium uppercase tracking-widest text-[10px] italic">Kayıt Listesi</p></div>
                             <div className="flex gap-3 w-full md:w-auto">
-                                <div className="relative flex-1 md:w-72"><i className="lucide-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i><input type="text" placeholder="Hızlı ara..." className="w-full bg-slate-900 border border-slate-800 p-3.5 pl-12 rounded-2xl text-sm font-medium focus:border-blue-500 outline-none transition shadow-inner" value={localQuery} onChange={(e) => setLocalQuery(e.target.value)} /></div>
+                                <div className="relative flex-1 md:w-72"><i className="lucide-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i><input type="text" placeholder="Hızlı ara..." className="w-full bg-slate-900 border border-slate-800 p-3.5 pl-12 rounded-2xl text-sm font-medium focus:border-blue-500 outline-none transition shadow-inner" value={q} onChange={(e) => setQ(e.target.value)} /></div>
                                 <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 px-6 py-3.5 rounded-2xl flex items-center gap-2 font-black text-xs transition text-white uppercase tracking-wider shadow-lg shadow-blue-600/20 italic"><i className="lucide-user-plus w-4 h-4"></i> ÖĞRENCİ EKLE</button>
                             </div>
                         </div>
@@ -351,12 +320,12 @@
                             {filtered.map(student => (
                                 <div key={student.id} className="glass-card p-6 rounded-[2rem] hover:border-blue-500/40 transition group flex flex-col shadow-sm">
                                     <div className="flex items-center gap-4 mb-5">
-                                        <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl font-black text-blue-500 overflow-hidden shadow-lg group-hover:scale-105 transition border border-slate-700 shadow-inner">
+                                        <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl font-black text-blue-500 overflow-hidden shadow-lg border border-slate-700">
                                             {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : (student.name || '?')[0]}
                                         </div>
-                                        <div><h3 className="text-lg font-black text-white leading-tight mb-1">{student.name}</h3><span className="text-[9px] font-black bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded uppercase">{student.grade}. SINIF</span></div>
+                                        <div><h3 className="text-lg font-black text-white leading-tight mb-1 italic tracking-tighter">{student.name}</h3><span className="text-[9px] font-black bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded uppercase">{student.grade}. SINIF</span></div>
                                     </div>
-                                    <div className="bg-slate-950/40 p-3 rounded-xl mb-6 flex-1 border border-white/5 shadow-inner"><div className="flex justify-between text-[10px] mb-1.5"><span className="text-slate-500 font-bold uppercase tracking-widest">Birim Ücret</span><span className="text-white font-black">{student.unitPrice} ₺</span></div><p className="text-[10px] text-slate-400 italic line-clamp-2 leading-relaxed">{student.notes || 'Not kaydı bulunmuyor.'}</p></div>
+                                    <div className="bg-slate-950/40 p-3 rounded-xl mb-6 flex-1 border border-white/5 shadow-inner"><div className="flex justify-between text-[10px] mb-1.5"><span className="text-slate-500 font-bold uppercase tracking-widest">Birim Ücret</span><span className="text-white font-black italic tracking-tighter">{student.unitPrice} ₺</span></div><p className="text-[10px] text-slate-400 italic line-clamp-2 leading-relaxed">{student.notes || 'Not kaydı bulunmuyor.'}</p></div>
                                     <div className="flex gap-2">
                                         <button onClick={() => {setEditingStudent(student); setIsModalOpen(true);}} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition border border-slate-700 shadow-inner italic">DÜZENLE</button>
                                         <button onClick={() => exportStudentProfile(student)} className="flex-1 py-2.5 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 border border-blue-500/20 shadow-inner italic"><i className="lucide-file-text w-3 h-3"></i> PROFİL</button>
@@ -370,8 +339,8 @@
                                 onSave={(data) => {
                                     if(editingStudent) {
                                         if (editingStudent.unitPrice !== data.unitPrice) { 
-                                            const newLogs = [...priceLogs, { id: Date.now(), studentId: editingStudent.id, oldPrice: editingStudent.unitPrice, newPrice: data.unitPrice, date: new Date().toLocaleString() }];
-                                            handleUpdate('priceLogs', newLogs);
+                                            const nl = [...priceLogs, { id: Date.now(), studentId: editingStudent.id, oldPrice: editingStudent.unitPrice, newPrice: data.unitPrice, date: new Date().toLocaleString() }];
+                                            handleUpdate('priceLogs', nl);
                                         }
                                         handleUpdate('students', students.map(s => s.id === editingStudent.id ? {...s, ...data, updatedAt: new Date().toLocaleString()} : s));
                                     } else { handleUpdate('students', [...students, { ...data, id: Date.now().toString(), updatedAt: new Date().toLocaleString() }]); }
@@ -386,86 +355,153 @@
             };
 
             const StudentModal = ({ student, onClose, onSave, onDelete, logs }) => {
-                const [form, setForm] = useState(student || { name: '', grade: 1, photo: '', unitPrice: '', notes: '' });
-                const handlePhotoUpload = (e) => {
+                const [f, setF] = useState(student || { name: '', grade: 1, photo: '', unitPrice: '', notes: '' });
+                const handlePhoto = (e) => {
                     const file = e.target.files[0];
                     if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => { setForm(prev => ({ ...prev, photo: ev.target.result })); };
-                        reader.readAsDataURL(file);
+                        const r = new FileReader(); r.onload = (ev) => setF(p => ({ ...p, photo: ev.target.result }));
+                        r.readAsDataURL(file);
                     }
                 };
                 return (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm overflow-y-auto">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
                         <div className="bg-slate-900 w-full max-w-lg rounded-3xl p-8 border border-slate-800 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-                            <div className="flex justify-between items-center mb-8"><h2 className="text-xl font-black text-white italic">{student ? 'Öğrenci Bilgi Güncelleme' : 'Yeni Öğrenci Kaydı'}</h2><button onClick={onClose} className="p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition shadow-inner"><i className="lucide-x w-5 h-5"></i></button></div>
+                            <div className="flex justify-between items-center mb-8"><h2 className="text-xl font-black text-white italic">{student ? 'Bilgi Güncelle' : 'Öğrenci Kaydı'}</h2><button onClick={onClose} className="p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition shadow-inner"><i className="lucide-x w-5 h-5"></i></button></div>
                             <div className="space-y-6">
-                                <div className="flex flex-col items-center gap-4 mb-4">
-                                    <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-3xl font-black text-blue-500 overflow-hidden shadow-xl border-2 border-slate-700">
-                                        {form.photo ? <img src={form.photo} className="w-full h-full object-cover" /> : <i className="lucide-camera w-8 h-8 opacity-20"></i>}
-                                    </div>
-                                    <label className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-black cursor-pointer transition border border-slate-700 uppercase shadow-inner">Fotoğraf Seç<input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} /></label>
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-3xl font-black text-blue-500 overflow-hidden shadow-xl border-2 border-slate-700">{f.photo ? <img src={f.photo} className="w-full h-full object-cover" /> : <i className="lucide-camera w-8 h-8 opacity-20"></i>}</div>
+                                    <label className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-black cursor-pointer transition border border-slate-700 uppercase shadow-inner">Fotoğraf Seç<input type="file" className="hidden" accept="image/*" onChange={handlePhoto} /></label>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="md:col-span-2"><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic">Öğrenci Tam Adı</label><input type="text" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} placeholder="İsim Soyisim" /></div>
-                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic">Sınıf</label><select className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner" value={form.grade || 1} onChange={e => setForm({...form, grade: parseInt(e.target.value)})}>{GRADES.map(g => <option key={g} value={g}>{g}. Sınıf</option>)}</select></div>
-                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic">Ders Ücreti (₺)</label><input type="number" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner" value={form.unitPrice || ''} onChange={e => setForm({...form, unitPrice: e.target.value})} /></div>
+                                    <div className="md:col-span-2"><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic tracking-widest italic tracking-tighter">İsim Soyisim</label><input type="text" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner italic tracking-tighter" value={f.name || ''} onChange={e => setF({...f, name: e.target.value})} /></div>
+                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic tracking-widest italic tracking-tighter">Sınıf</label><select className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner" value={f.grade || 1} onChange={e => setF({...f, grade: parseInt(e.target.value)})}>{GRADES.map(g => <option key={g} value={g}>{g}. Sınıf</option>)}</select></div>
+                                    <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic tracking-widest italic tracking-tighter">Ücret (₺)</label><input type="number" className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition shadow-inner italic tracking-tighter" value={f.unitPrice || ''} onChange={e => setF({...f, unitPrice: e.target.value})} /></div>
                                 </div>
-                                <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic">Özel Notlar</label><textarea className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl h-24 text-xs font-medium outline-none focus:border-blue-500 transition shadow-inner" value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})}></textarea></div>
-                                {student && <div className="bg-slate-950/40 p-5 rounded-2xl border border-white/5"><h4 className="text-[10px] uppercase font-black text-slate-500 mb-3 tracking-widest italic italic tracking-tighter">Birim Ücret Logları</h4><div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">{logs && logs.length > 0 ? logs.slice().reverse().map(log => (<div key={log.id} className="flex justify-between items-center p-2.5 bg-slate-900 rounded-lg text-[10px] border border-white/5 shadow-inner"><span className="text-slate-500 font-bold">{log.date}</span><span className="font-black text-slate-200">{log.oldPrice} ₺ → <b className="text-blue-400">{log.newPrice} ₺</b></span></div>)) : <p className="text-[9px] text-slate-600 italic uppercase text-center py-2 italic tracking-tighter">Kayıt yok</p>}</div></div>}
-                                <div className="flex gap-3 pt-6 border-t border-slate-800">{student && <button onClick={() => onDelete(student.id)} className="px-8 py-3.5 text-red-500 font-black text-[10px] hover:bg-red-500/10 rounded-2xl transition uppercase border border-red-500/10 shadow-sm">SİL</button>}<button onClick={() => onSave({...form, unitPrice: parseFloat(form.unitPrice) || 0})} className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs shadow-lg shadow-blue-600/30 active:scale-95 transition uppercase tracking-widest italic italic tracking-tighter">VERİLERİ KAYDET</button></div>
+                                <div><label className="block text-[10px] uppercase font-black text-slate-500 mb-1.5 ml-1 italic tracking-widest italic tracking-tighter">Notlar</label><textarea className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl h-24 text-xs font-medium outline-none focus:border-blue-500 transition shadow-inner italic tracking-tighter" value={f.notes || ''} onChange={e => setF({...f, notes: e.target.value})}></textarea></div>
+                                {student && <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5"><h4 className="text-[10px] uppercase font-black text-slate-500 mb-3 tracking-widest italic tracking-tighter italic">Birim Ücret Logları</h4><div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">{logs.slice().reverse().map(l => (<div key={l.id} className="flex justify-between items-center p-2.5 bg-slate-900 rounded-lg text-[10px] shadow-sm"><span className="text-slate-500 font-bold">{l.date}</span><span className="font-black text-slate-200">{l.oldPrice} ₺ → <b className="text-blue-400">{l.newPrice} ₺</b></span></div>))}</div></div>}
+                                <div className="flex gap-3 pt-6 border-t border-slate-800">{student && <button onClick={() => onDelete(student.id)} className="px-8 py-3.5 text-red-500 font-black text-[10px] hover:bg-red-500/10 rounded-2xl transition uppercase border border-red-500/10 italic">SİL</button>}<button onClick={() => onSave({...f, unitPrice: parseFloat(f.unitPrice) || 0})} className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs shadow-lg shadow-blue-600/30 active:scale-95 transition uppercase italic italic tracking-tighter italic">KAYDET</button></div>
                             </div>
                         </div>
                     </div>
                 );
             };
 
-            // --- TAB: MUHASEBE ---
-            const AccountingTab = () => {
-                const [accQuery, setAccQuery] = useState("");
-                const [payModal, setPayModal] = useState(null);
+            // --- TAB: İSTATİSTİK ---
+            const StatisticsTab = () => {
+                const [statSubTab, setStatSubTab] = useState('summary');
+                const [selectedStudentId, setSelectedStudentId] = useState("");
+                const [searchStudent, setSearchStudent] = useState("");
+                const pieRef = useRef(null);
+                const barRef = useRef(null);
 
-                const summary = useMemo(() => {
-                    return students.map(s => {
-                        const sLessons = lessons.filter(l => l.studentId === s.id && l.attendance === 'geldi');
-                        const sTransactions = transactions.filter(t => t.studentId === s.id);
-                        const debt = sLessons.reduce((acc, curr) => acc + (curr.priceAtTime || s.unitPrice || 0), 0);
-                        const paid = sTransactions.filter(t => t.type === 'payment').reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-                        const expenses = sTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-                        return { id: s.id, name: s.name, count: sLessons.length, debt, paid, expenses, balance: (debt + expenses) - paid };
-                    }).filter(s => (s.name || '').toLowerCase().includes(accQuery.toLowerCase()));
-                }, [students, lessons, transactions, accQuery]);
+                const filteredStudents = useMemo(() => students.filter(s => (s.name || '').toLowerCase().includes(searchStudent.toLowerCase())), [students, searchStudent]);
+                const currentStudent = students.find(s => s.id === selectedStudentId);
+                const studentLessons = lessons.filter(l => l.studentId === selectedStudentId);
 
-                const totals = useMemo(() => summary.reduce((acc, curr) => ({ count: acc.count + curr.count, debt: acc.debt + curr.debt, paid: acc.paid + curr.paid, expenses: acc.expenses + curr.expenses, balance: acc.balance + curr.balance }), {count:0, debt:0, paid:0, expenses:0, balance:0}), [summary]);
+                useEffect(() => {
+                    if (selectedStudentId && statSubTab === 'summary' && pieRef.current) {
+                        const ctx = pieRef.current.getContext('2d');
+                        let inst = Chart.getChart(pieRef.current);
+                        if (inst) inst.destroy();
+                        const counts = EMOTIONS_MAP.map(e => studentLessons.filter(l => l.emotion === e.icon).length);
+                        new Chart(ctx, {
+                            type: 'doughnut',
+                            data: { labels: EMOTIONS_MAP.map(e => e.label), datasets: [{ data: counts, backgroundColor: EMOTIONS_MAP.map(e => e.color), borderWidth: 0, hoverOffset: 15 }] },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { weight: 'bold', size: 10 } } } } }
+                        });
+                    }
+                    if (selectedStudentId && statSubTab === 'reading' && barRef.current) {
+                        const ctx = barRef.current.getContext('2d');
+                        let inst = Chart.getChart(barRef.current);
+                        if (inst) inst.destroy();
+                        const valid = studentLessons.filter(l => l.readingData?.wpm);
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: { labels: valid.map(l => l.date), datasets: [{ label: 'Kelim/Dak', data: valid.map(l => parseFloat(l.readingData.wpm)), borderColor: '#10b981', tension: 0.4 }, { label: 'Anlama %', data: valid.map(l => parseFloat(l.readingData.comp)), borderColor: '#3b82f6', tension: 0.4 }] },
+                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+                        });
+                    }
+                }, [statSubTab, selectedStudentId, studentLessons]);
 
                 return (
-                    <div className="p-4 md:p-8 pb-24 h-full overflow-y-auto custom-scrollbar">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4"><h1 className="text-3xl font-black text-white italic tracking-tight">Finansal Yönetim</h1><button onClick={() => exportPDF('acc-table-area', 'portrait', 'Muhasebe_Raporu.pdf')} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3.5 rounded-2xl font-black text-xs transition border border-slate-700 shadow-md flex items-center gap-2 uppercase tracking-tighter italic"><i className="lucide-file-text w-4 h-4 text-blue-500"></i> TABLOYU AKTAR</button></div>
-                        <div className="mb-6 relative w-full md:w-72 no-print shadow-inner"><i className="lucide-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i><input type="text" placeholder="Hızlı filtrele..." className="w-full bg-slate-900 border border-slate-800 p-3.5 pl-12 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 transition shadow-inner" value={accQuery} onChange={e => setAccQuery(e.target.value)} /></div>
-                        <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 shadow-inner" id="acc-table-area">
+                    <div className="flex h-full overflow-hidden no-print animate-in fade-in duration-500">
+                        <div className="w-64 border-r border-slate-800 flex flex-col bg-slate-900/50">
+                            <div className="p-4 border-b border-slate-800"><h3 className="text-[10px] font-black uppercase text-slate-500 italic mb-3 tracking-widest italic tracking-tighter">Gelişim Takibi</h3><input type="text" placeholder="Filtrele..." className="w-full bg-slate-950 border border-slate-800 p-2 rounded-lg text-xs outline-none focus:border-blue-500 shadow-inner" value={searchStudent} onChange={e => setSearchStudent(e.target.value)} /></div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">{filteredStudents.map(s => (<button key={s.id} onClick={() => setSelectedStudentId(s.id)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition ${selectedStudentId === s.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'}`}><div className={`w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-black ${selectedStudentId === s.id ? 'bg-white/20' : ''}`}>{(s.name || '?')[0]}</div><span className="text-xs font-bold truncate italic tracking-tighter">{s.name}</span></button>))}</div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+                            {!selectedStudentId ? (<div className="h-full flex flex-col items-center justify-center opacity-20 italic font-black text-2xl tracking-tighter">İSTATİSTİK İÇİN ÖĞRENCİ SEÇİN</div>) : (
+                                <div className="space-y-8 animate-in fade-in duration-700" id="stat-render">
+                                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                                        <div className="flex items-center gap-5"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl italic tracking-tighter text-white shadow-xl shadow-blue-500/20 italic">{(currentStudent?.name || '?')[0]}</div><div><h2 className="text-2xl font-black italic tracking-tighter">{currentStudent?.name}</h2><p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">Gelişim Raporu</p></div></div>
+                                        <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
+                                            {['summary', 'test', 'reading'].map(t => (<button key={t} onClick={() => setStatSubTab(t)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition ${statSubTab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}>{t === 'summary' ? 'ÖZET' : t === 'test' ? 'TESTLER' : 'OKUMA'}</button>))}
+                                            <button onClick={() => exportPDF('stat-render', 'portrait', 'Gelisim_Raporu.pdf')} className="px-3 bg-slate-800 text-blue-400 border border-slate-700 rounded-xl"><i className="lucide-download w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                    {statSubTab === 'summary' && (<div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="glass-card p-8 rounded-[2rem] min-h-[350px]"><canvas ref={pieRef}></canvas></div><div className="glass-card p-8 rounded-[2rem]"><span className="text-4xl font-black text-blue-500 tabular-nums italic tracking-tighter">{studentLessons.filter(l => l.attendance === 'geldi').length}</span><p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest italic tracking-tighter">Toplam Katılım</p></div></div>)}
+                                    {statSubTab === 'reading' && (<div className="glass-card p-10 rounded-[2.5rem] h-[450px] shadow-2xl border border-white/5"><canvas ref={barRef}></canvas></div>)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const AccountingTab = () => {
+                const [q, setQ] = useState("");
+                const [payModal, setPayModal] = useState(null);
+                const [history, setHistory] = useState(null);
+                const summary = useMemo(() => students.map(s => {
+                    const lList = lessons.filter(l => l.studentId === s.id && l.attendance === 'geldi');
+                    const tList = transactions.filter(t => t.studentId === s.id);
+                    const debt = lList.reduce((acc, curr) => acc + (curr.priceAtTime || s.unitPrice || 0), 0);
+                    const paid = tList.filter(t => t.type === 'payment').reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+                    const expenses = tList.filter(t => t.type === 'expense').reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+                    return { id: s.id, name: s.name, count: lList.length, debt, paid, expenses, balance: (debt + expenses) - paid };
+                }).filter(s => (s.name || '').toLowerCase().includes(q.toLowerCase())), [students, lessons, transactions, q]);
+
+                const totals = summary.reduce((acc, curr) => ({ count: acc.count + curr.count, debt: acc.debt + curr.debt, paid: acc.paid + curr.paid, expenses: acc.expenses + curr.expenses, balance: acc.balance + curr.balance }), {count:0, debt:0, paid:0, expenses:0, balance:0});
+
+                return (
+                    <div className="p-4 md:p-8 pb-24 h-full overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4"><h1 className="text-3xl font-black text-white italic tracking-tight italic tracking-tighter">Finansal Yönetim</h1><button onClick={() => exportPDF('acc-table', 'portrait', 'Muhasebe_Raporu.pdf')} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3.5 rounded-2xl font-black text-xs transition border border-slate-700 shadow-md flex items-center gap-2 uppercase italic tracking-tighter italic"><i className="lucide-file-text w-4 h-4 text-blue-500"></i> TABLOYU AKTAR</button></div>
+                        <div className="mb-6 relative w-full md:w-72 shadow-inner"><i className="lucide-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i><input type="text" placeholder="Hızlı filtrele..." className="w-full bg-slate-900 border border-slate-800 p-3.5 pl-12 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 transition shadow-inner italic tracking-tighter" value={q} onChange={e => setQ(e.target.value)} /></div>
+                        <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 shadow-inner" id="acc-table">
                             <div className="overflow-x-auto"><table className="w-full text-left border-collapse min-w-[900px]">
-                                <thead><tr className="bg-slate-900/80 text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] border-b border-slate-800 italic"><th className="p-6">Öğrenci</th><th className="p-6 text-center">Ders</th><th className="p-6">Tahakkuk</th><th className="p-6">Gider (+)</th><th className="p-6">Tahsilat (-)</th><th className="p-6 text-blue-500">Bakiye</th><th className="p-6 text-right no-print">İşlemler</th></tr></thead>
+                                <thead><tr className="bg-slate-900/80 text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] border-b border-slate-800 italic"><th className="p-6">Öğrenci Adı</th><th className="p-6 text-center">Ders</th><th className="p-6">Tahakkuk</th><th className="p-6 text-red-500">Gider (+)</th><th className="p-6 text-green-500">Tahsilat (-)</th><th className="p-6 text-blue-500">Bakiye</th><th className="p-6 text-right no-print">İşlemler</th></tr></thead>
                                 <tbody className="divide-y divide-slate-800/50">
                                     {summary.map(row => (
                                         <tr key={row.id} className="hover:bg-blue-600/[0.02] transition-all group">
                                             <td className="p-6 font-black text-slate-200 italic tracking-tighter">{row.name}</td>
-                                            <td className="p-6 text-center font-mono text-slate-500 text-xs shadow-inner">{row.count}</td>
-                                            <td className="p-6 font-bold font-mono text-xs tabular-nums tracking-tighter">{row.debt.toLocaleString()} ₺</td>
-                                            <td className="p-6 font-bold font-mono text-xs text-red-500 tabular-nums tracking-tighter">+{row.expenses.toLocaleString()} ₺</td>
-                                            <td className="p-6 font-bold font-mono text-xs text-green-500 tabular-nums tracking-tighter">-{row.paid.toLocaleString()} ₺</td>
-                                            <td className={`p-6 font-black font-mono text-sm tabular-nums tracking-tight ${row.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{row.balance.toLocaleString()} ₺</td>
-                                            <td className="p-6 text-right no-print"><div className="flex justify-end gap-2.5 opacity-40 group-hover:opacity-100 transition-opacity"><button onClick={() => setPayModal({studentId: row.id, type: 'payment'})} className="p-2.5 bg-green-500/10 text-green-500 rounded-xl transition border border-green-500/10 hover:bg-green-600 hover:text-white shadow-sm"><i className="lucide-plus-circle w-5 h-5"></i></button><button onClick={() => setPayModal({studentId: row.id, type: 'expense'})} className="p-2.5 bg-red-500/10 text-red-500 rounded-xl transition border border-red-500/10 hover:bg-red-600 hover:text-white shadow-sm"><i className="lucide-minus-circle w-5 h-5"></i></button></div></td>
+                                            <td className="p-6 text-center font-mono text-slate-500 text-xs shadow-inner italic tracking-tighter">{row.count}</td>
+                                            <td className="p-6 font-bold font-mono text-xs tabular-nums tracking-tighter italic tracking-tighter">{row.debt.toLocaleString()} ₺</td>
+                                            <td className="p-6 font-bold font-mono text-xs text-red-500 tabular-nums tracking-tighter italic tracking-tighter">+{row.expenses.toLocaleString()} ₺</td>
+                                            <td className="p-6 font-bold font-mono text-xs text-green-500 tabular-nums tracking-tighter italic tracking-tighter">-{row.paid.toLocaleString()} ₺</td>
+                                            <td className={`p-6 font-black font-mono text-sm tabular-nums tracking-tight italic tracking-tighter ${row.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{row.balance.toLocaleString()} ₺</td>
+                                            <td className="p-6 text-right no-print"><div className="flex justify-end gap-2.5"><button onClick={() => setPayModal({studentId: row.id, type: 'payment'})} className="p-2.5 bg-green-500/10 text-green-500 rounded-xl transition border border-green-500/10 hover:bg-green-600 hover:text-white shadow-sm"><i className="lucide-plus-circle w-5 h-5"></i></button><button onClick={() => setPayModal({studentId: row.id, type: 'expense'})} className="p-2.5 bg-red-500/10 text-red-500 rounded-xl transition border border-red-500/10 hover:bg-red-600 hover:text-white shadow-sm"><i className="lucide-minus-circle w-5 h-5"></i></button><button onClick={() => setHistory(row.id)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl transition border border-slate-700 shadow-sm"><i className="lucide-history w-5 h-5"></i></button></div></td>
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot className="bg-slate-900 font-black border-t-2 border-slate-800 text-slate-300 italic tracking-tighter"><tr><td className="p-6 uppercase text-[10px]">GENEL TOPLAM</td><td className="p-6 text-center font-mono">{totals.count}</td><td className="p-6 font-mono text-xs italic italic tracking-tighter">{totals.debt.toLocaleString()} ₺</td><td className="p-6 font-mono text-xs italic text-red-500">+{totals.expenses.toLocaleString()} ₺</td><td className="p-6 font-mono text-xs italic text-green-500">-{totals.paid.toLocaleString()} ₺</td><td className="p-6 font-mono italic italic tracking-tighter">{totals.balance.toLocaleString()} ₺</td><td className="p-6 no-print"></td></tr></tfoot>
+                                <tfoot className="bg-slate-900 font-black border-t-2 border-slate-800 text-slate-300 italic tracking-tighter tracking-tighter uppercase italic text-[10px]"><tr><td className="p-6">TOPLAM</td><td className="p-6 text-center font-mono">{totals.count}</td><td className="p-6 font-mono text-xs italic tracking-tighter">{totals.debt.toLocaleString()} ₺</td><td className="p-6 font-mono text-xs italic tracking-tighter text-red-500">+{totals.expenses.toLocaleString()} ₺</td><td className="p-6 font-mono text-xs italic tracking-tighter text-green-500">-{totals.paid.toLocaleString()} ₺</td><td className="p-6 font-mono italic tracking-tighter">{totals.balance.toLocaleString()} ₺</td><td className="p-6 no-print"></td></tr></tfoot>
                             </table></div>
                         </div>
-                        {payModal && (
-                            <TransactionModal 
-                                type={payModal.type} student={students.find(s => s.id === payModal.studentId)} onClose={() => setPayModal(null)}
-                                onSave={(data) => { handleUpdate('transactions', [...transactions, { ...data, id: Date.now().toString(), studentId: payModal.studentId, timestamp: new Date().toLocaleString() }]); setPayModal(null); }}
-                            />
+                        {payModal && (<TransactionModal type={payModal.type} student={students.find(s => s.id === payModal.studentId)} onClose={() => setPayModal(null)} onSave={(d) => { handleUpdate('transactions', [...transactions, { ...d, id: Date.now().toString(), studentId: payModal.studentId, timestamp: new Date().toLocaleString() }]); setPayModal(null); }} />)}
+                        {history && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+                                <div className="bg-slate-900 w-full max-w-2xl rounded-3xl p-8 border border-slate-800 shadow-2xl flex flex-col max-h-[80vh]">
+                                    <div className="flex justify-between items-center mb-6"><div><h2 className="text-xl font-black italic tracking-tighter">{students.find(s => s.id === history)?.name}</h2><p className="text-[10px] uppercase font-bold text-slate-500 italic tracking-tighter">İşlem Geçmişi</p></div><button onClick={() => setHistory(null)} className="p-2 hover:bg-slate-800 rounded-xl transition"><i className="lucide-x w-5 h-5"></i></button></div>
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                                        {transactions.filter(t => t.studentId === history).slice().reverse().map(t => (
+                                            <div key={t.id} className={`p-4 rounded-2xl border flex justify-between items-center ${t.type === 'payment' ? 'bg-green-600/5 border-green-500/20' : 'bg-red-600/5 border-red-500/20'}`}>
+                                                <div><p className="font-bold text-sm italic tracking-tighter">{t.description || 'Açıklama yok'}</p><p className="text-[10px] text-slate-500 font-bold uppercase italic tracking-tighter">{t.timestamp}</p></div>
+                                                <div className={`font-black italic tracking-tighter ${t.type === 'payment' ? 'text-green-500' : 'text-red-500'}`}>{t.type === 'payment' ? '-' : '+'}{t.amount.toLocaleString()} ₺</div>
+                                                <button onClick={() => handleUpdate('transactions', transactions.filter(tr => tr.id !== t.id))} className="text-slate-700 hover:text-red-500 transition ml-4"><i className="lucide-trash-2 w-4 h-4"></i></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 );
@@ -474,30 +510,28 @@
             const TransactionModal = ({ type, student, onClose, onSave }) => {
                 const [form, setForm] = useState({ amount: '', description: '' });
                 return (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm shadow-2xl">
                         <div className="bg-slate-900 w-full max-w-sm rounded-3xl p-8 shadow-2xl border border-slate-800 animate-in zoom-in-95 duration-200">
-                            <h2 className={`text-xl font-black mb-6 uppercase tracking-tight italic ${type === 'payment' ? 'text-green-400' : 'text-red-400'}`}>{type === 'payment' ? 'TAHSİLAT GİRİŞİ' : 'GİDER KAYDI'}</h2>
+                            <h2 className={`text-xl font-black mb-6 uppercase tracking-tight italic ${type === 'payment' ? 'text-green-400' : 'text-red-400'}`}>{type === 'payment' ? 'TAHSİLAT' : 'GİDER'}</h2>
                             <div className="space-y-5">
-                                <div className="p-5 bg-slate-950/40 rounded-2xl border border-slate-800 shadow-inner"><span className="text-[10px] font-black text-slate-600 uppercase block mb-1">Cari Öğrenci</span><div className="font-black text-slate-200 italic tracking-tight italic tracking-tighter">{student?.name}</div></div>
-                                <div><label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest italic italic tracking-tighter">İşlem Tutarı (₺)</label><input type="number" placeholder="0.00" className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 font-black text-lg outline-none focus:border-blue-500 transition shadow-inner tabular-nums" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} /></div>
-                                <div><label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest italic italic tracking-tighter">Açıklama</label><input type="text" placeholder="İşlem nedeni..." className="w-full bg-slate-800 p-4 rounded-2xl border border-slate-700 font-medium italic text-sm outline-none focus:border-blue-500 transition shadow-inner" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-                                <div className="flex gap-3 pt-4"><button onClick={onClose} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm">İPTAL</button><button onClick={() => onSave({...form, amount: parseFloat(form.amount) || 0, type})} className={`flex-1 py-4 rounded-2xl font-black text-[10px] text-white uppercase tracking-widest transition shadow-lg active:scale-95 italic italic tracking-tighter ${type === 'payment' ? 'bg-green-600 shadow-green-600/20' : 'bg-red-600 shadow-red-600/20'}`}>KAYDI TAMAMLA</button></div>
+                                <div className="p-4 bg-slate-950/40 rounded-2xl border border-slate-800 italic tracking-tighter"><p className="text-[10px] font-black text-slate-600 uppercase mb-1">Cari</p><p className="font-black text-slate-200 italic tracking-tighter">{student?.name}</p></div>
+                                <input type="number" placeholder="Tutar ₺" className="w-full bg-slate-800 p-4 rounded-2xl font-black text-lg outline-none italic tracking-tighter shadow-inner" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
+                                <input type="text" placeholder="Açıklama" className="w-full bg-slate-800 p-4 rounded-2xl font-medium text-sm outline-none italic tracking-tighter shadow-inner" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                                <div className="flex gap-3"><button onClick={onClose} className="flex-1 py-4 bg-slate-800 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm italic">İPTAL</button><button onClick={() => onSave({...form, amount: parseFloat(form.amount) || 0, type})} className={`flex-1 py-4 rounded-2xl font-black text-[10px] text-white uppercase transition shadow-lg italic tracking-tighter ${type === 'payment' ? 'bg-green-600 shadow-green-500/20' : 'bg-red-600 shadow-red-500/20'}`}>KAYDET</button></div>
                             </div>
                         </div>
                     </div>
                 );
             };
 
-            // Main App return logic
             return (
-                <div className="flex flex-col md:flex-row h-screen bg-[#020617] overflow-hidden italic tracking-tighter">
+                <div className="flex flex-col md:flex-row h-screen bg-[#020617] overflow-hidden">
                     <Sidebar />
                     <main className="flex-1 overflow-hidden">
-                        <div className="h-full flex flex-col">
+                        <div className="h-full flex flex-col italic tracking-tighter">
                             {activeTab === 'calendar' && <CalendarTab />}
                             {activeTab === 'students' && <StudentsTab />}
-                            {/* Diğer sekmeler benzer mantıkla devam eder... */}
-                            {activeTab === 'statistics' && <div className="p-8 opacity-20 uppercase font-black italic">İstatistikler Senkronize Ediliyor...</div>}
+                            {activeTab === 'statistics' && <StatisticsTab />}
                             {activeTab === 'accounting' && <AccountingTab />}
                         </div>
                     </main>
@@ -508,7 +542,12 @@
             );
         };
 
-        function exportStudentProfile(student) { console.log("Exporting", student); }
+        function exportStudentProfile(student) { 
+            const d = document.createElement('div'); d.className = 'p-10 text-slate-900 bg-white';
+            d.innerHTML = `<h1 style="font-size: 32px; font-weight: 900;">${student.name}</h1><p>${student.grade}. Sınıf</p><p>Ücret: ${student.unitPrice} ₺</p>`;
+            html2pdf().set({ margin: 10, filename: `${student.name}_CV.pdf`, jsPDF: { format: 'a4' } }).from(d).save();
+        }
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>

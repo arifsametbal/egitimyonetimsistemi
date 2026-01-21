@@ -13,7 +13,7 @@ const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'pro-egitim-cloud';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'pro-egitim-cloud-v11';
 
 const BRANCHES = ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"];
 const EMOTIONS_MAP = [
@@ -58,10 +58,8 @@ const App = () => {
     useEffect(() => {
         if (!user) return;
 
-        // Helper for strictly formatted paths
         const getColl = (name) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-        // Listeners with simple queries
         const unsubStudents = onSnapshot(getColl('students'), (snap) => {
             setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             setLoading(false);
@@ -97,7 +95,8 @@ const App = () => {
                     ts: Date.now()
                 });
             }
-            await setDoc(doc(coll, data.id), data, { merge: true });
+            const { id, ...payload } = data;
+            await setDoc(doc(coll, id), payload, { merge: true });
         } else {
             await addDoc(coll, data);
         }
@@ -111,14 +110,18 @@ const App = () => {
     const saveLesson = async (data) => {
         if (!user) return;
         const coll = collection(db, 'artifacts', appId, 'public', 'data', 'lessons');
-        // Get current unit price of student to lock it for accounting
         const student = students.find(s => s.id === data.studentId);
         const lockedPrice = student ? student.unitPrice : 0;
         
-        const payload = { ...data, priceAtTime: lockedPrice };
+        const payload = { 
+            ...data, 
+            priceAtTime: lockedPrice,
+            updatedAt: Date.now() 
+        };
 
         if (data.id) {
-            await setDoc(doc(coll, data.id), payload, { merge: true });
+            const { id, ...updateData } = payload;
+            await setDoc(doc(coll, id), updateData, { merge: true });
         } else {
             await addDoc(coll, payload);
         }
@@ -133,7 +136,7 @@ const App = () => {
         return (
             <div className="h-screen w-full bg-[#020617] flex flex-col items-center justify-center">
                 <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <div className="text-blue-500 font-black text-[10px] tracking-[0.3em] uppercase animate-pulse">Bulut Senkronizasyonu Aktif Ediliyor</div>
+                <div className="text-blue-500 font-black text-[10px] tracking-[0.3em] uppercase animate-pulse">Sistem Hazırlanıyor...</div>
             </div>
         );
     }
@@ -141,7 +144,7 @@ const App = () => {
     return (
         <div className="flex flex-col md:flex-row h-screen bg-[#020617] text-slate-200 overflow-hidden font-sans">
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+            <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#020617]">
                 {activeTab === 'calendar' && <CalendarTab students={students} lessons={lessons} onSaveLesson={saveLesson} onDeleteLesson={deleteLesson} />}
                 {activeTab === 'students' && <StudentsTab students={students} priceLogs={priceLogs} onSaveStudent={saveStudent} onDeleteStudent={deleteStudent} />}
                 {activeTab === 'statistics' && <StatisticsTab lessons={lessons} students={students} />}
@@ -169,10 +172,10 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
         <div className="hidden md:block mt-auto p-4">
             <div className="bg-slate-800/30 rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-sm shadow-green-500"></div>
-                    <span className="text-[10px] font-black text-green-500 tracking-widest uppercase">Canlı Yayın</span>
+                    <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500"></div>
+                    <span className="text-[10px] font-black text-green-500 tracking-widest uppercase">Bulut Aktif</span>
                 </div>
-                <p className="text-[9px] text-slate-500 font-medium leading-relaxed">Verileriniz şu an tüm bağlı cihazlarla eş zamanlanıyor.</p>
+                <p className="text-[9px] text-slate-500 font-medium leading-relaxed">Verileriniz güvenle bulutta saklanır.</p>
             </div>
         </div>
     </div>
@@ -207,8 +210,8 @@ const CalendarTab = ({ students, lessons, onSaveLesson, onDeleteLesson }) => {
         <div className="p-4 md:p-10 pb-24 md:pb-10 h-full flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 no-print">
                 <div>
-                    <h1 className="text-3xl font-black text-white italic tracking-tighter">Haftalık Akış</h1>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Gerçek Zamanlı Takip</p>
+                    <h1 className="text-3xl font-black text-white italic tracking-tighter">Ders Takvimi</h1>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Haftalık Planlama</p>
                 </div>
                 <div className="flex bg-slate-900/50 border border-white/5 rounded-2xl p-1.5 items-center backdrop-blur-md">
                     <button onClick={() => {
@@ -245,9 +248,11 @@ const CalendarTab = ({ students, lessons, onSaveLesson, onDeleteLesson }) => {
                                                     <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{lesson.time}</span>
                                                     <span className="text-sm">{lesson.emotion}</span>
                                                 </div>
-                                                <div className="text-[13px] font-black text-white truncate">{student?.name || '---'}</div>
+                                                <div className="text-[13px] font-black text-white truncate leading-tight">
+                                                    {student ? student.name : <span className="text-red-500 italic opacity-50">Kayıtsız Öğrenci</span>}
+                                                </div>
                                                 <div className="text-[9px] text-slate-500 font-bold uppercase truncate mt-1 tracking-wider opacity-70">
-                                                    {Array.isArray(lesson.branches) ? lesson.branches.join(' • ') : lesson.branch}
+                                                    {Array.isArray(lesson.branches) ? lesson.branches.join(' • ') : (lesson.branch || 'Branş Seçilmedi')}
                                                 </div>
                                             </div>
                                         );
@@ -282,18 +287,22 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
             <div className="bg-slate-900 w-full max-w-3xl rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
                 <div className="flex justify-between items-center mb-10">
-                    <h2 className="text-2xl font-black text-white italic tracking-tighter">{lesson ? 'Kayıt Güncelle' : 'Yeni Ders Kaydı'}</h2>
+                    <h2 className="text-2xl font-black text-white italic tracking-tighter">{lesson ? 'Dersi Güncelle' : 'Ders Tanımla'}</h2>
                     <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full transition"><i className="lucide-x w-6 h-6"></i></button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-6">
                         <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">ÖĞRENCİ SEÇİMİ</label>
-                            <select className="w-full bg-slate-800/50 border border-white/5 p-4 rounded-2xl text-sm font-black text-white focus:ring-2 ring-blue-500/20 outline-none appearance-none" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}>
-                                <option value="">Bir Öğrenci Seçin</option>
-                                {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade}. Sınıf)</option>)}
-                            </select>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">ÖĞRENCİ</label>
+                            {students.length === 0 ? (
+                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-[10px] font-bold text-red-400">Önce "Öğrenciler" sekmesinden kayıt yapmalısınız.</div>
+                            ) : (
+                                <select className="w-full bg-slate-800/50 border border-white/5 p-4 rounded-2xl text-sm font-black text-white focus:ring-2 ring-blue-500/20 outline-none appearance-none cursor-pointer" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}>
+                                    <option value="">Lütfen Seçin</option>
+                                    {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade}. Sınıf)</option>)}
+                                </select>
+                            )}
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
@@ -308,7 +317,7 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">UYGULANAN BRANŞLAR</label>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">BRANŞLAR</label>
                             <div className="flex flex-wrap gap-2">
                                 {BRANCHES.map(b => (
                                     <button key={b} onClick={() => {
@@ -322,34 +331,34 @@ const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete 
 
                     <div className="space-y-6">
                         <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">DERS NOTLARI</label>
-                            <textarea className="w-full bg-slate-800/50 border border-white/5 p-5 rounded-2xl h-32 text-xs font-medium focus:ring-2 ring-blue-500/20 outline-none transition" placeholder="Neler yapıldı? Ödevler neler?" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">NOTLAR</label>
+                            <textarea className="w-full bg-slate-800/50 border border-white/5 p-5 rounded-2xl h-32 text-xs font-medium focus:ring-2 ring-blue-500/20 outline-none transition" placeholder="Öğrenci ne yaptı? Eksikler neler?" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">DERS HİSSİYATI</label>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">DERS SONU DURUMU</label>
                             <div className="flex justify-between bg-slate-800/30 p-2 rounded-[1.5rem] border border-white/5">
                                 {EMOTIONS_MAP.map(e => (
-                                    <button key={e.label} onClick={() => setForm({...form, emotion: e.icon})} className={`w-12 h-12 flex items-center justify-center rounded-xl text-xl transition-all ${form.emotion === e.icon ? 'bg-blue-600 shadow-lg shadow-blue-500/30 scale-110' : 'hover:bg-slate-800'}`}>{e.icon}</button>
+                                    <button key={e.label} onClick={() => setForm({...form, emotion: e.icon})} className={`w-12 h-12 flex items-center justify-center rounded-xl text-xl transition-all ${form.emotion === e.icon ? 'bg-blue-600 shadow-lg shadow-blue-500/30 scale-110' : 'hover:bg-slate-800 opacity-40'}`}>{e.icon}</button>
                                 ))}
                             </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-950 rounded-2xl border border-white/5">
                             {['geldi', 'gelmedi', 'bekliyor'].map(st => (
-                                <button key={st} onClick={() => setForm({...form, attendance: st})} className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${form.attendance === st ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-600 hover:text-slate-400'}`}>{st}</button>
+                                <button key={st} onClick={() => setForm({...form, attendance: st})} className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${form.attendance === st ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>{st.toUpperCase()}</button>
                             ))}
                         </div>
                     </div>
                 </div>
 
                 <div className="mt-12 pt-8 border-t border-white/5 flex flex-wrap gap-4 items-center justify-between">
-                    <div className="text-[10px] font-black text-slate-500">
-                        {currentStudent ? `BİRİM ÜCRET: ${currentStudent.unitPrice} ₺` : 'LÜTFEN ÖĞRENCİ SEÇİN'}
+                    <div className="text-[10px] font-black text-slate-500 italic">
+                        {currentStudent ? `DERS BAŞI ÜCRET: ${currentStudent.unitPrice} ₺` : 'Kaydetmek için öğrenci seçmelisiniz'}
                     </div>
                     <div className="flex gap-4">
-                        {lesson && <button onClick={() => {onDelete(lesson.id); onClose();}} className="px-8 py-4 text-red-500 text-[11px] font-black hover:bg-red-500/10 rounded-2xl transition uppercase tracking-[0.2em]">KAYDI SİL</button>}
-                        <button onClick={() => {onSave(form); onClose();}} className="px-14 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-600/20 active:scale-95 transition-all">DEĞİŞİKLİKLERİ KAYDET</button>
+                        {lesson && <button onClick={() => {onDelete(lesson.id); onClose();}} className="px-8 py-4 text-red-500 text-[11px] font-black hover:bg-red-500/10 rounded-2xl transition uppercase">KAYDI SİL</button>}
+                        <button disabled={!form.studentId} onClick={() => {onSave(form); onClose();}} className={`px-14 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl ${!form.studentId ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20 active:scale-95'}`}>DERSİ KAYDET</button>
                     </div>
                 </div>
             </div>
@@ -365,30 +374,35 @@ const StudentsTab = ({ students, priceLogs, onSaveStudent, onDeleteStudent }) =>
         <div className="p-4 md:p-10">
             <div className="flex justify-between items-center mb-10">
                 <div>
-                    <h1 className="text-3xl font-black italic tracking-tighter">Öğrenci Portföyü</h1>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">{students.length} AKTİF ÖĞRENCİ</p>
+                    <h1 className="text-3xl font-black italic tracking-tighter">Öğrenciler</h1>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">{students.length} Kayıt</p>
                 </div>
-                <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 transition-all">+ Yeni Kayıt</button>
+                <button onClick={() => { setEditingStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 transition-all">+ Yeni Öğrenci</button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {students.map(student => (
-                    <div key={student.id} onClick={() => { setEditingStudent(student); setIsModalOpen(true); }} className="bg-slate-900/50 p-6 rounded-[2rem] border border-white/5 hover:border-blue-500/40 transition-all cursor-pointer group hover:bg-slate-900 shadow-sm">
-                        <div className="flex items-center gap-5">
-                            <div className="w-20 h-20 bg-slate-800 rounded-[1.5rem] overflow-hidden flex items-center justify-center border-2 border-white/5 group-hover:border-blue-500/20 transition-all">
-                                {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : <i className="lucide-user w-8 h-8 text-slate-600"></i>}
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-black text-lg text-white group-hover:text-blue-400 transition-colors leading-tight">{student.name}</h3>
-                                <p className="text-slate-500 text-[10px] font-black uppercase mt-1 tracking-widest">{student.grade}. SINIF</p>
-                                <div className="mt-3 flex items-center gap-2">
-                                    <span className="text-emerald-500 text-xs font-black">{student.unitPrice} ₺</span>
-                                    <span className="text-[9px] text-slate-600 font-bold">/ DERS</span>
+
+            {students.length === 0 ? (
+                <div className="h-[400px] flex flex-col items-center justify-center bg-slate-900/20 border-2 border-dashed border-white/5 rounded-[3rem]">
+                    <i className="lucide-users w-12 h-12 text-slate-800 mb-4"></i>
+                    <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">Henüz hiçbir öğrenci kaydedilmemiş.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {students.map(student => (
+                        <div key={student.id} onClick={() => { setEditingStudent(student); setIsModalOpen(true); }} className="bg-slate-900/50 p-6 rounded-[2rem] border border-white/5 hover:border-blue-500/40 transition-all cursor-pointer group hover:bg-slate-900">
+                            <div className="flex items-center gap-5">
+                                <div className="w-16 h-16 bg-slate-800 rounded-[1.2rem] overflow-hidden flex items-center justify-center border border-white/5">
+                                    {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : <i className="lucide-user w-6 h-6 text-slate-600"></i>}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-black text-md text-white group-hover:text-blue-400 transition-colors leading-tight">{student.name}</h3>
+                                    <p className="text-slate-500 text-[9px] font-black uppercase mt-1">{student.grade}. SINIF</p>
+                                    <div className="mt-2 text-emerald-500 text-xs font-black">{student.unitPrice} ₺</div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
             {isModalOpen && <StudentModal student={editingStudent} onClose={() => setIsModalOpen(false)} onSave={onSaveStudent} onDelete={onDeleteStudent} logs={priceLogs.filter(l => l.studentId === editingStudent?.id)} />}
         </div>
     );
@@ -410,52 +424,33 @@ const StudentModal = ({ student, onClose, onSave, onDelete, logs }) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
             <div className="bg-slate-900 w-full max-w-lg rounded-[2.5rem] p-10 border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
                 <div className="flex justify-between items-center mb-10">
-                    <h2 className="text-2xl font-black italic">{student ? 'Bilgileri Düzenle' : 'Öğrenci Tanımla'}</h2>
+                    <h2 className="text-2xl font-black italic">{student ? 'Düzenle' : 'Yeni Kayıt'}</h2>
                     <button onClick={onClose} className="p-2 text-slate-500"><i className="lucide-x w-6 h-6"></i></button>
                 </div>
                 
-                <div className="space-y-8">
+                <div className="space-y-6">
                     <div className="flex flex-col items-center">
-                        <div className="w-28 h-28 bg-slate-800 rounded-3xl mb-4 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden">
-                            {form.photo ? <img src={form.photo} className="w-full h-full object-cover" /> : <i className="lucide-camera w-8 h-8 opacity-20"></i>}
+                        <div className="w-24 h-24 bg-slate-800 rounded-3xl mb-3 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden">
+                            {form.photo ? <img src={form.photo} className="w-full h-full object-cover" /> : <i className="lucide-camera w-6 h-6 opacity-20"></i>}
                         </div>
-                        <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest cursor-pointer hover:underline">
-                            FOTOĞRAF YÜKLE
-                            <input type="file" className="hidden" accept="image/*" onChange={handlePhoto} />
-                        </label>
+                        <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest cursor-pointer hover:underline">FOTOĞRAF SEÇ<input type="file" className="hidden" accept="image/*" onChange={handlePhoto} /></label>
                     </div>
 
-                    <div className="space-y-5">
-                        <input type="text" className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none" placeholder="TAM ADI SOYADI" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <select className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none" value={form.grade} onChange={e => setForm({...form, grade: parseInt(e.target.value)})}>
-                                {GRADES.map(g => <option key={g} value={g}>{g}. SINIF</option>)}
-                            </select>
-                            <input type="number" className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none text-emerald-500" placeholder="ÜCRET (₺)" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value) || 0})} />
-                        </div>
-
-                        <textarea className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 h-24 text-xs font-medium outline-none" placeholder="ÖZEL NOTLAR (HEDEFLER, İLGİ ALANLARI...)" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
+                    <input type="text" className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none" placeholder="ÖĞRENCİ ADI SOYADI" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <select className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none cursor-pointer" value={form.grade} onChange={e => setForm({...form, grade: parseInt(e.target.value)})}>
+                            {GRADES.map(g => <option key={g} value={g}>{g}. SINIF</option>)}
+                        </select>
+                        <input type="number" className="bg-slate-800/50 p-4 rounded-2xl border border-white/5 font-black text-sm outline-none text-emerald-500" placeholder="ÜCRET (₺)" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value) || 0})} />
                     </div>
 
-                    {logs && logs.length > 0 && (
-                        <div className="bg-slate-950/50 p-5 rounded-2xl border border-white/5">
-                            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-3 block">ÜCRET GEÇMİŞİ</span>
-                            <div className="space-y-2">
-                                {logs.map(log => (
-                                    <div key={log.id} className="flex justify-between items-center text-[10px] font-bold">
-                                        <span className="text-slate-500">{log.date}</span>
-                                        <span className="text-slate-300">{log.oldPrice} ₺ → <b className="text-blue-500">{log.newPrice} ₺</b></span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <textarea className="w-full bg-slate-800/50 p-4 rounded-2xl border border-white/5 h-24 text-xs outline-none" placeholder="NOTLAR..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
                 </div>
 
                 <div className="mt-10 flex gap-4 pt-8 border-t border-white/5">
-                    {student && <button onClick={() => {onDelete(student.id); onClose();}} className="px-6 py-4 text-red-500 font-black text-[10px] uppercase">SİL</button>}
-                    <button onClick={() => { onSave(form); onClose(); }} className="flex-1 py-4 bg-blue-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20">KAYDI TAMAMLA</button>
+                    {student && <button onClick={() => {onDelete(student.id); onClose();}} className="px-6 py-4 text-red-500 font-black text-[10px] uppercase">ÖĞRENCİYİ SİL</button>}
+                    <button onClick={() => { if(form.name) {onSave(form); onClose();} }} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest ${!form.name ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 text-white shadow-xl shadow-blue-600/20'}`}>KAYDI TAMAMLA</button>
                 </div>
             </div>
         </div>
@@ -464,10 +459,11 @@ const StudentModal = ({ student, onClose, onSave, onDelete, logs }) => {
 
 const StatisticsTab = ({ lessons, students }) => {
     const stats = useMemo(() => {
-        const total = lessons.filter(l => l.attendance === 'geldi').length;
+        const completed = lessons.filter(l => l.attendance === 'geldi');
+        const total = completed.length;
         const branchCounts = {};
-        lessons.filter(l => l.attendance === 'geldi').forEach(l => {
-            const list = Array.isArray(l.branches) ? l.branches : [l.branch];
+        completed.forEach(l => {
+            const list = Array.isArray(l.branches) ? l.branches : (l.branch ? [l.branch] : []);
             list.forEach(b => {
                 if(b) branchCounts[b] = (branchCounts[b] || 0) + 1;
             });
@@ -475,17 +471,21 @@ const StatisticsTab = ({ lessons, students }) => {
         return { total, branchCounts };
     }, [lessons]);
 
+    if (stats.total === 0) return (
+        <div className="p-10 h-full flex items-center justify-center text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Henüz analiz edilecek veri yok.</div>
+    );
+
     return (
         <div className="p-10">
-            <h1 className="text-3xl font-black italic mb-10">Performans Analizi</h1>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <h1 className="text-3xl font-black italic mb-10">İstatistik</h1>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-slate-900/50 p-8 rounded-[2rem] border border-white/5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">TOPLAM TAMAMLANAN DERS</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">BİTEN DERSLER</span>
                     <div className="text-5xl font-black text-blue-500">{stats.total}</div>
                 </div>
                 <div className="md:col-span-2 bg-slate-900/50 p-8 rounded-[2rem] border border-white/5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">BRANŞ DAĞILIMI</span>
-                    <div className="flex flex-wrap gap-4">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">BRANŞLAR</span>
+                    <div className="flex flex-wrap gap-3">
                         {Object.entries(stats.branchCounts).map(([branch, count]) => (
                             <div key={branch} className="bg-slate-800 px-4 py-3 rounded-2xl border border-white/5 flex items-center gap-3">
                                 <span className="text-xs font-black text-white">{branch}</span>
@@ -524,26 +524,24 @@ const AccountingTab = ({ lessons, students }) => {
 
     return (
         <div className="p-10">
-            <h1 className="text-3xl font-black italic mb-10">Mali Tablo</h1>
+            <h1 className="text-3xl font-black italic mb-10">Muhasebe</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                <div className="bg-emerald-500/10 p-10 rounded-[2.5rem] border border-emerald-500/20 shadow-2xl shadow-emerald-500/5">
-                    <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest block mb-2">TOPLAM HAKEDİŞ</span>
+                <div className="bg-emerald-500/10 p-10 rounded-[2.5rem] border border-emerald-500/20">
+                    <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest block mb-2">TOPLAM KAZANÇ</span>
                     <div className="text-6xl font-black text-white">{report.earned.toLocaleString()} ₺</div>
-                    <p className="text-[10px] text-emerald-500/60 mt-4 font-bold italic">Tamamlanan derslerin toplam tutarı.</p>
                 </div>
-                <div className="bg-amber-500/10 p-10 rounded-[2.5rem] border border-amber-500/20 shadow-2xl shadow-amber-500/5">
-                    <span className="text-[11px] font-black text-amber-500 uppercase tracking-widest block mb-2">BEKLEYEN TAHMİNİ</span>
+                <div className="bg-amber-500/10 p-10 rounded-[2.5rem] border border-amber-500/20">
+                    <span className="text-[11px] font-black text-amber-500 uppercase tracking-widest block mb-2">TAHMİNİ GELECEK</span>
                     <div className="text-6xl font-black text-white">{report.pending.toLocaleString()} ₺</div>
-                    <p className="text-[10px] text-amber-500/60 mt-4 font-bold italic">Henüz gerçekleşmemiş derslerin potansiyeli.</p>
                 </div>
             </div>
 
             <div className="bg-slate-900/50 rounded-[2.5rem] border border-white/5 overflow-hidden">
-                <div className="p-8 border-b border-white/5 bg-slate-900/80">
-                    <h2 className="text-lg font-black italic">Öğrenci Bazlı Toplamlar</h2>
-                </div>
+                <div className="p-8 border-b border-white/5 bg-slate-900/80"><h2 className="text-lg font-black italic">Öğrenci Bazlı Tahakkuk</h2></div>
                 <div className="divide-y divide-white/5">
-                    {Object.entries(report.studentDebt).sort((a,b) => b[1] - a[1]).map(([name, amount]) => (
+                    {Object.entries(report.studentDebt).length === 0 ? (
+                        <div className="p-10 text-center text-[10px] font-black text-slate-700 uppercase">Öğrenci verisi bulunmuyor</div>
+                    ) : Object.entries(report.studentDebt).sort((a,b) => b[1] - a[1]).map(([name, amount]) => (
                         <div key={name} className="flex justify-between items-center p-6 hover:bg-slate-800/30 transition-colors">
                             <span className="text-sm font-black text-slate-300 tracking-tight">{name}</span>
                             <span className="text-lg font-black text-white">{amount.toLocaleString()} ₺</span>

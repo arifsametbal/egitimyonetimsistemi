@@ -24,6 +24,7 @@
         .branch-chip { cursor: pointer; padding: 4px 10px; border-radius: 99px; border: 1px solid #334155; font-size: 11px; transition: all 0.2s; }
         .branch-chip.active { background: #3b82f6; border-color: #3b82f6; color: white; }
         .loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .media-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #334155; }
     </style>
 </head>
 <body class="min-h-screen pb-20 md:pb-0">
@@ -51,7 +52,6 @@
 
     <!-- Ana İçerik Alanı -->
     <main class="container mx-auto p-4 max-w-6xl">
-        
         <!-- TAKVİM BÖLÜMÜ -->
         <section id="section-calendar" class="tab-content">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -108,25 +108,18 @@
             </div>
 
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
-                <!-- Başarı Grafiği -->
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Gelişimi (%)</h3>
                     <div class="h-[300px]"><canvas id="chart-test-performance"></canvas></div>
                 </div>
-
-                <!-- Duygu Durumu -->
                 <div class="glass-card p-4 rounded-xl">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
                     <div class="h-[250px]"><canvas id="chart-mood"></canvas></div>
                 </div>
-
-                <!-- Branş Başarı Dağılımı -->
                 <div class="glass-card p-4 rounded-xl">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Branş Bazlı Ortalama Başarı (%)</h3>
                     <div class="h-[250px]"><canvas id="chart-subjects-success"></canvas></div>
                 </div>
-
-                <!-- Okuma Hızı -->
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Okuma Hızı & Anlama Oranı Gelişimi</h3>
                     <div class="h-[300px]"><canvas id="chart-reading"></canvas></div>
@@ -193,7 +186,7 @@
         <button onclick="switchTab('accounting')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-accounting"><i class="fas fa-wallet text-lg"></i><span>Muhasebe</span></button>
     </div>
 
-    <!-- Modallar -->
+    <!-- Ders Modalı -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
             <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
@@ -249,6 +242,11 @@
                         </div>
                     </div>
                 </div>
+                <div class="space-y-2">
+                    <label class="block text-[10px] text-slate-500 uppercase">Ders Medyası (Görsel / Video)</label>
+                    <input type="file" id="lesson-media-input" accept="image/*,video/*" multiple class="text-xs" onchange="handleLessonMedia(event)">
+                    <div id="lesson-media-preview" class="flex flex-wrap gap-2 mt-2"></div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <textarea id="lesson-notes" placeholder="Ders Notları..." class="w-full h-24 text-sm"></textarea>
                     <textarea id="lesson-reminders" placeholder="Hatırlatmalar..." class="w-full h-24 text-sm border-dashed border-yellow-500/30"></textarea>
@@ -267,7 +265,16 @@
         </div>
     </div>
 
-    <!-- İşlem Girişi Modalı (Harcama/Ödeme) -->
+    <!-- Muhasebe Geçmişi Modalı -->
+    <div id="acc-history-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-2xl rounded-2xl p-6 relative max-h-[80vh] overflow-y-auto">
+            <button onclick="closeModal('acc-history-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="acc-history-title" class="text-xl font-bold mb-6">İşlem Geçmişi</h2>
+            <div id="acc-history-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- İşlem Girişi Modalı -->
     <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
             <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
@@ -298,6 +305,12 @@
             <h2 id="student-modal-title" class="text-xl font-bold mb-6">Öğrenci Kaydı</h2>
             <form id="student-form" class="space-y-4" onsubmit="saveStudent(event)">
                 <input type="hidden" id="student-id">
+                <div class="flex flex-col items-center mb-4">
+                    <div id="student-photo-preview" class="w-24 h-24 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center mb-2 overflow-hidden">
+                        <i class="fas fa-user text-3xl text-slate-600"></i>
+                    </div>
+                    <input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48" onchange="handleStudentPhoto(event)">
+                </div>
                 <div>
                     <label class="block text-xs mb-1 text-slate-500 uppercase">Tam Adı</label>
                     <input type="text" id="student-name" class="w-full" required>
@@ -341,6 +354,42 @@
             charts: { mood: null, subjectsSuccess: null, performance: null, reading: null }
         };
 
+        let tempStudentPhoto = "";
+        let tempLessonMedia = [];
+
+        // --- MEDIA HANDLERS ---
+        function handleStudentPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                tempStudentPhoto = e.target.result;
+                document.getElementById('student-photo-preview').innerHTML = `<img src="${tempStudentPhoto}" class="w-full h-full object-cover">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleLessonMedia(event) {
+            const files = event.target.files;
+            const preview = document.getElementById('lesson-media-preview');
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = e.target.result;
+                    tempLessonMedia.push({ data, type: file.type });
+                    const el = document.createElement('div');
+                    el.className = "relative group";
+                    if (file.type.startsWith('video/')) {
+                        el.innerHTML = `<video src="${data}" class="media-preview"></video><i class="fas fa-play absolute inset-0 flex items-center justify-center text-[10px] text-white"></i>`;
+                    } else {
+                        el.innerHTML = `<img src="${data}" class="media-preview">`;
+                    }
+                    preview.appendChild(el);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         // --- CORE FUNCTIONS ---
         function getWeekId() {
             const today = new Date();
@@ -369,7 +418,6 @@
                         branchSelect.innerHTML += `<option value="${b}">${b}</option>`;
                     });
                 }
-
                 initCalendar();
             } catch(e) {
                 console.error("Fetch hatası:", e);
@@ -463,7 +511,7 @@
                             <span>${l.time}</span>
                             <span class="text-[9px] opacity-70">${getStudentName(l.studentId)}</span>
                         </div>
-                        <div class="text-[9px] text-slate-400 mt-1 truncate">${(l.selectedBranches || []).join(', ')}</div>
+                        <div class="text-[9px] text-slate-400 mt-1 truncate">${(l.selectedBranches || []).join(', ')} ${ (l.media && l.media.length > 0) ? '<i class="fas fa-paperclip ml-1"></i>' : '' }</div>
                     `;
                     container.appendChild(node);
                 }
@@ -475,6 +523,8 @@
             const modal = document.getElementById('lesson-modal');
             const form = document.getElementById('lesson-form');
             form.reset();
+            tempLessonMedia = [];
+            document.getElementById('lesson-media-preview').innerHTML = '';
             document.getElementById('lesson-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
             const bc = document.getElementById('branch-container');
             bc.innerHTML = appState.branches.map(b => `<div class="branch-chip" onclick="toggleBranchChip(this)">${b}</div>`).join('');
@@ -484,7 +534,7 @@
             const deleteBtn = document.getElementById('btn-lesson-delete');
             if(id) {
                 deleteBtn.classList.remove('hidden');
-                const l = appState.lessons.find(x => x.id == id);
+                const l = appState.lessons.find(x => String(x.id) === String(id));
                 if (l) {
                     document.getElementById('lesson-student').value = l.studentId;
                     document.getElementById('lesson-time').value = l.time;
@@ -499,6 +549,20 @@
                         if(chip) chip.classList.add('active');
                     });
                     (l.tests || []).forEach(t => addTestRow(t));
+                    
+                    if (l.media) {
+                        tempLessonMedia = [...l.media];
+                        l.media.forEach(m => {
+                            const el = document.createElement('div');
+                            el.className = "relative group";
+                            if (m.type.startsWith('video/')) {
+                                el.innerHTML = `<video src="${m.data}" class="media-preview"></video><i class="fas fa-play absolute inset-0 flex items-center justify-center text-[10px] text-white"></i>`;
+                            } else {
+                                el.innerHTML = `<img src="${m.data}" class="media-preview">`;
+                            }
+                            document.getElementById('lesson-media-preview').appendChild(el);
+                        });
+                    }
                 }
             } else { deleteBtn.classList.add('hidden'); }
             modal.classList.remove('hidden');
@@ -518,58 +582,62 @@
                 <input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}">
                 <input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}">
                 <input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}">
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-500"><i class="fas fa-trash-alt"></i></button>
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>
             `;
             container.appendChild(row);
         }
 
         function saveLesson(e) {
             e.preventDefault();
-            const id = document.getElementById('lesson-id').value;
-            const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
-            const tests = [];
-            Array.from(document.getElementById('test-rows-container').children).forEach(row => {
-                const inputs = row.querySelectorAll('input');
-                tests.push({
-                    branch: row.querySelector('select').value,
-                    q: parseInt(inputs[0].value || 0),
-                    d: parseInt(inputs[1].value || 0),
-                    w: parseInt(inputs[2].value || 0),
-                    e: parseInt(inputs[3].value || 0)
+            try {
+                const id = document.getElementById('lesson-id').value;
+                const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
+                const tests = [];
+                Array.from(document.getElementById('test-rows-container').children).forEach(row => {
+                    const inputs = row.querySelectorAll('input');
+                    tests.push({
+                        branch: row.querySelector('select').value,
+                        q: parseInt(inputs[0].value || 0),
+                        d: parseInt(inputs[1].value || 0),
+                        w: parseInt(inputs[2].value || 0),
+                        e: parseInt(inputs[3].value || 0)
+                    });
                 });
-            });
-            const studentId = parseInt(document.getElementById('lesson-student').value);
-            const lesson = {
-                id: id ? parseInt(id) : Date.now(),
-                weekId: getWeekId(),
-                studentId: studentId,
-                day: parseInt(document.getElementById('lesson-day').value),
-                time: document.getElementById('lesson-time').value,
-                attendance: document.getElementById('lesson-attendance').checked,
-                selectedBranches: branches,
-                tests: tests,
-                words: document.getElementById('l-words').value,
-                comprehension: document.getElementById('l-comp').value,
-                mood: document.querySelector('input[name="mood"]:checked')?.value || null,
-                notes: document.getElementById('lesson-notes').value,
-                reminders: document.getElementById('lesson-reminders').value,
-                unitPrice: getStudentPrice(studentId)
-            };
-            if(id) {
-                const idx = appState.lessons.findIndex(x => x.id == id);
-                if (idx !== -1) appState.lessons[idx] = lesson;
-            } else { appState.lessons.push(lesson); }
-            closeModal('lesson-modal');
-            renderAllLessons();
-            saveToCloud();
+                const studentId = parseInt(document.getElementById('lesson-student').value);
+                const lesson = {
+                    id: id ? (isNaN(id) ? id : parseInt(id)) : Date.now(),
+                    weekId: getWeekId(),
+                    studentId: studentId,
+                    day: parseInt(document.getElementById('lesson-day').value),
+                    time: document.getElementById('lesson-time').value,
+                    attendance: document.getElementById('lesson-attendance').checked,
+                    selectedBranches: branches,
+                    tests: tests,
+                    media: tempLessonMedia,
+                    words: document.getElementById('l-words').value,
+                    comprehension: document.getElementById('l-comp').value,
+                    mood: document.querySelector('input[name="mood"]:checked')?.value || null,
+                    notes: document.getElementById('lesson-notes').value,
+                    reminders: document.getElementById('lesson-reminders').value,
+                    unitPrice: getStudentPrice(studentId)
+                };
+                if(id) {
+                    const idx = appState.lessons.findIndex(x => String(x.id) === String(id));
+                    if (idx !== -1) appState.lessons[idx] = lesson;
+                } else { appState.lessons.push(lesson); }
+                closeModal('lesson-modal');
+                renderAllLessons();
+                saveToCloud();
+            } catch (err) { console.error("Hata:", err); }
         }
 
         function deleteCurrentLesson() {
             const id = document.getElementById('lesson-id').value;
             if(!id || !confirm("Bu dersi silmek istediğinize emin misiniz?")) return;
-            appState.lessons = appState.lessons.filter(l => l.id != id);
+            appState.lessons = appState.lessons.filter(l => String(l.id) !== String(id));
             closeModal('lesson-modal');
             renderAllLessons();
+            if(appState.currentTab === 'accounting') renderAccounting();
             saveToCloud();
         }
 
@@ -592,14 +660,10 @@
             if (appState.charts.subjectsSuccess) appState.charts.subjectsSuccess.destroy();
             if (appState.charts.performance) appState.charts.performance.destroy();
             if (appState.charts.reading) appState.charts.reading.destroy();
-
             const studentId = parseInt(document.getElementById('stats-student-select').value);
             if(!studentId) return;
-
             const selectedBranch = document.getElementById('stats-branch-select').value;
-            const dataPool = appState.lessons.filter(l => l.studentId === studentId);
-
-            // 1. Duygu Durumu
+            const dataPool = appState.lessons.filter(l => String(l.studentId) === String(studentId));
             const moodCtx = document.getElementById('chart-mood');
             if (moodCtx) {
                 const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
@@ -609,8 +673,6 @@
                     options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
                 });
             }
-
-            // 2. Branş Bazlı Ortalama Başarı
             const successCtx = document.getElementById('chart-subjects-success');
             if (successCtx) {
                 const branchStats = {}; 
@@ -631,8 +693,6 @@
                     options: { maintainAspectRatio:false, scales:{ y:{ min:0, max:100, ticks:{color:'#94a3b8'} }, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
                 });
             }
-
-            // 3. Test Bazlı Gelişim Grafiği
             const perfCtx = document.getElementById('chart-test-performance');
             if (perfCtx) {
                 const testHistory = [];
@@ -642,10 +702,8 @@
                         testHistory.push({ branch: t.branch, rate: successRate, date: l.id });
                     });
                 });
-
                 let filteredHistory = [];
                 let title = "Test Başarı Gelişimi (%)";
-
                 if (selectedBranch === "ALL") {
                     const grouped = {};
                     testHistory.forEach(th => {
@@ -654,13 +712,11 @@
                         grouped[th.date].count++;
                     });
                     filteredHistory = Object.keys(grouped).sort().map(key => grouped[key].sum / grouped[key].count);
-                    title = "Genel Başarı Ortalaması (%)";
                 } else {
                     filteredHistory = testHistory.filter(th => th.branch === selectedBranch).map(th => th.rate);
                     title = `${selectedBranch} Başarı Grafiği (%)`;
                 }
                 document.getElementById('chart-main-title').innerText = title;
-
                 const labels = filteredHistory.map((_, i) => `${i+1}. Test`);
                 appState.charts.performance = new Chart(perfCtx, {
                     type: 'line',
@@ -668,8 +724,6 @@
                     options: { maintainAspectRatio:false, scales: { y: { min: 0, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }
                 });
             }
-
-            // 4. Okuma & Anlama
             const readCtx = document.getElementById('chart-reading');
             if (readCtx) {
                 const pool = dataPool.filter(l => l.words || l.comprehension).slice(-15);
@@ -679,17 +733,11 @@
                     data: {
                         labels,
                         datasets: [
-                            { label: 'Dakikada Kelime', data: pool.map(l => l.words || 0), borderColor: '#a855f7', tension: 0.3, yAxisID: 'y' },
+                            { label: 'Kelime/Dak.', data: pool.map(l => l.words || 0), borderColor: '#a855f7', tension: 0.3, yAxisID: 'y' },
                             { label: 'Anlama %', data: pool.map(l => l.comprehension || 0), borderColor: '#22c55e', tension: 0.3, yAxisID: 'y1' }
                         ]
                     },
-                    options: { 
-                        maintainAspectRatio:false,
-                        scales: {
-                            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#94a3b8' } },
-                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#22c55e' } }
-                        }
-                    }
+                    options: { maintainAspectRatio:false, scales: { y:{type:'linear', display:true, position:'left', ticks:{color:'#94a3b8'}}, y1:{type:'linear', display:true, position:'right', grid:{drawOnChartArea:false}, ticks:{color:'#22c55e'}} } }
                 });
             }
         }
@@ -700,18 +748,14 @@
             if (!body) return;
             body.innerHTML = '';
             let tD = 0, tP = 0, tE = 0;
-            
             appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
-                const lessons = appState.lessons.filter(l => l.studentId === s.id && l.attendance);
+                const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
                 const lessonDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
-                const extraExpenses = appState.accounting.filter(a => a.studentId === s.id && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
-                const paid = appState.accounting.filter(a => a.studentId === s.id && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
-                
+                const extraExpenses = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
+                const paid = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
                 const totalDebt = lessonDebt + extraExpenses;
                 const balance = totalDebt - paid;
-                
                 tD += lessonDebt; tP += paid; tE += extraExpenses;
-
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
                 row.innerHTML = `
@@ -721,15 +765,35 @@
                     <td class="p-4 text-orange-400">₺${extraExpenses}</td>
                     <td class="p-4 text-green-500 font-bold">₺${paid}</td>
                     <td class="p-4 font-bold ${balance > 0 ? 'text-red-500' : 'text-blue-500'}">₺${balance}</td>
-                    <td class="p-4"><button onclick="alert('Detaylar yakında eklenecek.')" class="text-slate-500"><i class="fas fa-history"></i></button></td>
+                    <td class="p-4 text-center">
+                        <button onclick="viewHistory('${s.id}')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded text-slate-400 hover:text-white">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </td>
                 `;
                 body.appendChild(row);
             });
-
             document.getElementById('acc-total-debt').innerText = `₺${tD}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
             document.getElementById('acc-total-expense').innerText = `₺${tE}`;
             document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
+        }
+
+        function viewHistory(studentId) {
+            const student = appState.students.find(s => String(s.id) === String(studentId));
+            if (!student) return;
+            const history = appState.accounting.filter(a => String(a.studentId) === String(studentId));
+            const modal = document.getElementById('acc-history-modal');
+            const list = document.getElementById('acc-history-list');
+            document.getElementById('acc-history-title').innerText = `${student.name} - İşlem Geçmişi`;
+            list.innerHTML = history.length === 0 ? '<p class="text-center text-slate-500 py-4">İşlem bulunamadı.</p>' : 
+            history.map(a => `
+                <div class="flex justify-between items-center p-3 glass-card rounded-xl border-l-4 ${a.type === 'payment' ? 'border-green-500' : 'border-orange-500'}">
+                    <div><p class="font-bold text-sm">${a.desc}</p><p class="text-[10px] text-slate-500">${a.date}</p></div>
+                    <div class="text-right"><p class="font-bold ${a.type === 'payment' ? 'text-green-400' : 'text-orange-400'}">${a.type === 'payment' ? '+' : '-'} ₺${a.amount}</p></div>
+                </div>
+            `).join('');
+            modal.classList.remove('hidden');
         }
 
         function openTransactionModal(type) {
@@ -768,20 +832,23 @@
                 const card = document.createElement('div');
                 card.className = 'glass-card p-4 rounded-xl flex flex-col justify-between border-l-4 border-blue-500';
                 card.innerHTML = `
-                    <div>
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase font-bold">${s.grade}. Sınıf</span>
-                            <div class="space-x-1">
-                                <button onclick="openStudentModal(${s.id})" class="text-xs text-slate-500 hover:text-white p-1"><i class="fas fa-edit"></i></button>
-                                <button onclick="deleteStudent(${s.id})" class="text-xs text-red-900 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button>
-                            </div>
+                    <div class="flex gap-3">
+                        <div class="w-16 h-16 rounded-lg bg-slate-800 flex-shrink-0 overflow-hidden border border-slate-700">
+                            ${s.photo ? `<img src="${s.photo}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-slate-600"><i class="fas fa-user text-xl"></i></div>`}
                         </div>
-                        <h3 class="font-bold text-base truncate">${s.name}</h3>
-                        <p class="text-[10px] text-slate-500 mt-2 line-clamp-2">${s.notes || '-'}</p>
+                        <div class="flex-1 overflow-hidden">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase font-bold">${s.grade}. Sınıf</span>
+                                <div class="space-x-1">
+                                    <button onclick="openStudentModal('${s.id}')" class="text-xs text-slate-500 hover:text-white p-1"><i class="fas fa-edit"></i></button>
+                                    <button onclick="deleteStudent('${s.id}')" class="text-xs text-red-900 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-base truncate">${s.name}</h3>
+                        </div>
                     </div>
                     <div class="mt-4 flex justify-between items-center pt-3 border-t border-slate-800">
                         <span class="font-bold text-green-500 text-sm">₺${s.price} <span class="text-[9px] opacity-40">/ saat</span></span>
-                        <button onclick="exportStudentProfile(${s.id})" class="text-[9px] bg-slate-800 px-2 py-1 rounded uppercase font-bold">Profil Aktar</button>
                     </div>
                 `;
                 list.appendChild(card);
@@ -791,16 +858,22 @@
         function openStudentModal(id = null) {
             const m = document.getElementById('student-modal');
             const f = document.getElementById('student-form'); f.reset();
+            tempStudentPhoto = "";
+            document.getElementById('student-photo-preview').innerHTML = `<i class="fas fa-user text-3xl text-slate-600"></i>`;
             document.getElementById('student-id').value = id || "";
             document.getElementById('price-log-container').classList.add('hidden');
             if(id) {
-                const s = appState.students.find(x => x.id == id);
+                const s = appState.students.find(x => String(x.id) === String(id));
                 if (s) {
                     document.getElementById('student-name').value = s.name;
                     document.getElementById('student-grade').value = s.grade;
                     document.getElementById('student-price').value = s.price;
                     document.getElementById('student-notes').value = s.notes || "";
-                    const logs = appState.priceLogs.filter(l => l.studentId == id);
+                    if (s.photo) {
+                        tempStudentPhoto = s.photo;
+                        document.getElementById('student-photo-preview').innerHTML = `<img src="${s.photo}" class="w-full h-full object-cover">`;
+                    }
+                    const logs = appState.priceLogs.filter(l => String(l.studentId) === String(id));
                     if(logs.length > 0) {
                         document.getElementById('price-log-container').classList.remove('hidden');
                         document.getElementById('price-log-list').innerHTML = logs.map(l => `<li>${l.date}: ₺${l.old} ➔ ₺${l.new}</li>`).join('');
@@ -815,14 +888,14 @@
             const id = document.getElementById('student-id').value;
             const price = parseFloat(document.getElementById('student-price').value);
             if(id) {
-                const idx = appState.students.findIndex(x => x.id == id);
+                const idx = appState.students.findIndex(x => String(x.id) === String(id));
                 const old = appState.students[idx];
                 if(old.price !== price) {
-                    appState.priceLogs.push({ studentId: parseInt(id), old: old.price, new: price, date: new Date().toLocaleString('tr-TR') });
+                    appState.priceLogs.push({ studentId: isNaN(id) ? id : parseInt(id), old: old.price, new: price, date: new Date().toLocaleString('tr-TR') });
                 }
-                appState.students[idx] = { ...old, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value };
+                appState.students[idx] = { ...old, photo: tempStudentPhoto, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value };
             } else {
-                appState.students.push({ id: Date.now(), name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value });
+                appState.students.push({ id: Date.now(), photo: tempStudentPhoto, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value });
             }
             closeModal('student-modal');
             renderStudents();
@@ -831,18 +904,19 @@
         }
 
         function deleteStudent(id) {
-            if(!confirm("Bu öğrenciyi silmek tüm verilerinin silinmesine yol açar. Onaylıyor musunuz?")) return;
-            appState.students = appState.students.filter(s => s.id !== id);
-            appState.lessons = appState.lessons.filter(l => l.studentId !== id);
-            appState.accounting = appState.accounting.filter(a => a.studentId !== id);
+            if(!id || !confirm("Öğrenciyi ve tüm kayıtlarını silmek istediğinize emin misiniz?")) return;
+            appState.students = appState.students.filter(s => String(s.id) !== String(id));
+            appState.lessons = appState.lessons.filter(l => String(l.studentId) !== String(id));
+            appState.accounting = appState.accounting.filter(a => String(a.studentId) !== String(id));
             renderStudents();
             updateStatsSelect();
+            if(appState.currentTab === 'accounting') renderAccounting();
             saveToCloud();
         }
 
         // --- HELPERS ---
-        function getStudentName(id) { return appState.students.find(s => s.id === id)?.name || "Bilinmiyor"; }
-        function getStudentPrice(id) { return appState.students.find(s => s.id === id)?.price || 0; }
+        function getStudentName(id) { return appState.students.find(s => String(s.id) === String(id))?.name || "Bilinmiyor"; }
+        function getStudentPrice(id) { return appState.students.find(s => String(s.id) === String(id))?.price || 0; }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function filterStudents(q) { renderStudents(q); }
         function updateStatsSelect() { 
@@ -850,7 +924,6 @@
             if (select) select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); 
         }
 
-        // --- PDF EXPORTS ---
         async function exportFullCalendarPDF() {
             const el = document.getElementById('calendar-grid');
             const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
@@ -861,16 +934,13 @@
 
         function exportSingleLessonPDF() {
             const id = document.getElementById('lesson-id').value;
-            const l = appState.lessons.find(x => x.id == id);
+            const l = appState.lessons.find(x => String(x.id) === String(id));
             if(!l) return;
             const pdf = new jspdf.jsPDF();
             pdf.setFontSize(22); pdf.text('DERS RAPORU', 105, 20, {align:'center'});
             pdf.setFontSize(10); pdf.text(`Öğrenci: ${getStudentName(l.studentId)}`, 20, 40);
-            pdf.text(`Branşlar: ${l.selectedBranches.join(', ')}`, 20, 60);
             pdf.text('TEST SONUÇLARI:', 20, 80);
-            (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D - ${t.w}Y - ${t.e}B`, 25, 90 + (i*7)); });
-            pdf.text('NOTLAR:', 20, 160);
-            pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 170);
+            (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D`, 25, 90 + (i*7)); });
             pdf.save(`${getStudentName(l.studentId)}_Ders.pdf`);
         }
 
@@ -878,7 +948,6 @@
             const el = document.getElementById('stats-container');
             const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            pdf.text('Ogrenci Gelisim Raporu', 105, 10, {align:'center'});
             pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 260);
             pdf.save('Gelisim_Raporu.pdf');
         }
@@ -891,7 +960,7 @@
             pdf.save('Muhasebe_Raporu.pdf');
         }
 
-        window.onload = () => { fetchData(); };
+        window.onload = fetchData;
     </script>
 </body>
 </html>

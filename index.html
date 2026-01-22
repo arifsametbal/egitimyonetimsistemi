@@ -104,15 +104,19 @@
             
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="glass-card p-4 rounded-xl">
-                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
+                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
                     <div class="h-[250px]"><canvas id="chart-mood"></canvas></div>
                 </div>
                 <div class="glass-card p-4 rounded-xl">
-                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Branş Yoğunluğu</h3>
-                    <div class="h-[250px]"><canvas id="chart-subjects"></canvas></div>
+                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Branş Başarı Oranları (%)</h3>
+                    <div class="h-[250px]"><canvas id="chart-subjects-success"></canvas></div>
                 </div>
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
-                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Akademik Performans (Test & Okuma)</h3>
+                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Okuma Hızı & Anlama Oranı Gelişimi</h3>
+                    <div class="h-[300px]"><canvas id="chart-reading"></canvas></div>
+                </div>
+                <div class="glass-card p-4 rounded-xl md:col-span-2">
+                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Performans Analizi (Doğru Sayıları)</h3>
                     <div class="h-[300px]"><canvas id="chart-performance"></canvas></div>
                 </div>
             </div>
@@ -254,7 +258,10 @@
                 </div>
 
                 <div class="flex justify-between items-center pt-6 border-t border-slate-700">
-                    <button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-sm hover:underline"><i class="fas fa-file-download mr-2"></i>PDF Dökümü</button>
+                    <div class="flex gap-4">
+                        <button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-sm hover:underline"><i class="fas fa-file-download mr-1"></i>PDF</button>
+                        <button id="btn-lesson-delete" type="button" onclick="deleteCurrentLesson()" class="text-red-500 text-sm hover:underline hidden"><i class="fas fa-trash-alt mr-1"></i>Dersi Sil</button>
+                    </div>
                     <div class="space-x-3">
                         <button type="button" onclick="closeModal('lesson-modal')" class="bg-slate-800 px-5 py-2 rounded-lg text-sm">Vazgeç</button>
                         <button type="submit" class="bg-blue-600 px-8 py-2 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20">Kaydet</button>
@@ -334,8 +341,19 @@
             priceLogs: [],
             currentWeekOffset: 0,
             branches: ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"],
-            charts: { mood: null, subjects: null, performance: null }
+            charts: { mood: null, subjectsSuccess: null, performance: null, reading: null }
         };
+
+        // --- HELPERS ---
+        function getWeekId() {
+            const today = new Date();
+            const first = new Date(today);
+            const dayNum = today.getDay();
+            const diff = today.getDate() - dayNum + (dayNum === 0 ? -6 : 1) + (appState.currentWeekOffset * 7);
+            first.setDate(diff);
+            first.setHours(0,0,0,0);
+            return first.toISOString().split('T')[0]; // Haftanın Pazartesi günü ID'dir
+        }
 
         // --- CORE FETCH ---
         async function fetchData() {
@@ -389,6 +407,7 @@
         // --- CALENDAR ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
+            if(!grid) return;
             grid.innerHTML = '';
             const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
             
@@ -426,8 +445,12 @@
         function jumpToWeek(v) { if(!v) return; appState.currentWeekOffset = 0; initCalendar(); }
 
         function renderAllLessons() {
+            const currentWeekId = getWeekId();
             document.querySelectorAll('[id^="day-lessons-"]').forEach(el => el.innerHTML = '');
             appState.lessons.forEach(l => {
+                // Sadece mevcut haftadaki dersleri göster
+                if (l.weekId !== currentWeekId) return;
+
                 const container = document.getElementById(`day-lessons-${l.day}`);
                 if(container) {
                     const node = document.createElement('div');
@@ -459,7 +482,9 @@
             document.getElementById('lesson-day').value = day;
             document.getElementById('lesson-id').value = id || "";
 
+            const deleteBtn = document.getElementById('btn-lesson-delete');
             if(id) {
+                deleteBtn.classList.remove('hidden');
                 const l = appState.lessons.find(x => x.id == id);
                 if (l) {
                     document.getElementById('lesson-student').value = l.studentId;
@@ -480,8 +505,21 @@
                     });
                     (l.tests || []).forEach(t => addTestRow(t));
                 }
+            } else {
+                deleteBtn.classList.add('hidden');
             }
             modal.classList.remove('hidden');
+        }
+
+        function deleteCurrentLesson() {
+            const id = document.getElementById('lesson-id').value;
+            if(!id) return;
+            if(!confirm("Bu ders kaydını silmek istediğinize emin misiniz?")) return;
+            
+            appState.lessons = appState.lessons.filter(l => l.id != id);
+            closeModal('lesson-modal');
+            renderAllLessons();
+            saveToCloud();
         }
 
         function toggleBranchChip(el) { el.classList.toggle('active'); }
@@ -489,14 +527,16 @@
         function addTestRow(data = null) {
             const container = document.getElementById('test-rows-container');
             const row = document.createElement('div');
-            row.className = 'grid grid-cols-5 gap-2 items-center';
+            row.className = 'grid grid-cols-6 gap-2 items-center';
             row.innerHTML = `
                 <select class="text-[10px] col-span-2 py-1">
                     ${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
                 </select>
-                <input type="number" placeholder="Soru" class="text-[10px] py-1" value="${data?.q || ''}">
-                <input type="number" placeholder="Doğru" class="text-[10px] py-1" value="${data?.d || ''}">
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-500"><i class="fas fa-trash-alt"></i></button>
+                <input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}" title="Soru">
+                <input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}" title="Doğru">
+                <input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}" title="Yanlış">
+                <input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}" title="Boş">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>
             `;
             container.appendChild(row);
         }
@@ -511,16 +551,20 @@
                 const tests = [];
                 const testRows = Array.from(document.getElementById('test-rows-container').children);
                 testRows.forEach(row => {
+                    const inputs = row.querySelectorAll('input');
                     tests.push({
                         branch: row.querySelector('select').value,
-                        q: row.querySelectorAll('input')[0].value,
-                        d: row.querySelectorAll('input')[1].value
+                        q: inputs[0].value,
+                        d: inputs[1].value,
+                        w: inputs[2].value,
+                        e: inputs[3].value
                     });
                 });
 
                 const studentId = parseInt(document.getElementById('lesson-student').value);
                 const lesson = {
                     id: id ? parseInt(id) : Date.now(),
+                    weekId: getWeekId(), // Hafta bazlı takip için kritik alan
                     studentId: studentId,
                     day: parseInt(document.getElementById('lesson-day').value),
                     time: document.getElementById('lesson-time').value,
@@ -660,7 +704,7 @@
                     <td class="p-4">₺${debt}</td>
                     <td class="p-4 text-green-500 font-bold">₺${paid}</td>
                     <td class="p-4 font-bold ${debt-paid > 0 ? 'text-red-500' : 'text-blue-500'}">₺${debt-paid}</td>
-                    <td class="p-4"><button onclick="viewHistory(${s.id})" class="text-slate-500"><i class="fas fa-history"></i></button></td>
+                    <td class="p-4"><button class="text-slate-500"><i class="fas fa-history"></i></button></td>
                 `;
                 body.appendChild(row);
             });
@@ -705,48 +749,99 @@
 
         // --- STATS ---
         function initStats() {
+            // Önceki grafikleri temizle
             if (appState.charts.mood) appState.charts.mood.destroy();
-            if (appState.charts.subjects) appState.charts.subjects.destroy();
+            if (appState.charts.subjectsSuccess) appState.charts.subjectsSuccess.destroy();
             if (appState.charts.performance) appState.charts.performance.destroy();
+            if (appState.charts.reading) appState.charts.reading.destroy();
 
             const studentSelect = document.getElementById('stats-student-select');
             const studentId = studentSelect ? parseInt(studentSelect.value) : null;
             const dataPool = studentId ? appState.lessons.filter(l => l.studentId === studentId) : appState.lessons;
 
+            // 1. Mood Chart
             const moodCtx = document.getElementById('chart-mood');
             if (moodCtx) {
                 const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
                 appState.charts.mood = new Chart(moodCtx, {
                     type: 'doughnut',
-                    data: { labels: ['Çok Kötü','Kötü','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
+                    data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
                     options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
                 });
             }
 
-            const subCtx = document.getElementById('chart-subjects');
-            if (subCtx) {
-                const branchCount = {}; appState.branches.forEach(b => branchCount[b] = 0);
-                dataPool.forEach(l => (l.selectedBranches || []).forEach(b => branchCount[b]++));
-                appState.charts.subjects = new Chart(subCtx, {
+            // 2. Branş Bazlı Başarı Oranı (%)
+            const successCtx = document.getElementById('chart-subjects-success');
+            if (successCtx) {
+                const branchStats = {}; 
+                appState.branches.forEach(b => branchStats[b] = { total: 0, correct: 0 });
+                dataPool.forEach(l => {
+                    (l.tests || []).forEach(t => {
+                        if (branchStats[t.branch]) {
+                            branchStats[t.branch].total += parseInt(t.q || 0);
+                            branchStats[t.branch].correct += parseInt(t.d || 0);
+                        }
+                    });
+                });
+                const labels = appState.branches;
+                const data = labels.map(b => branchStats[b].total > 0 ? ((branchStats[b].correct / branchStats[b].total) * 100).toFixed(1) : 0);
+
+                appState.charts.subjectsSuccess = new Chart(successCtx, {
                     type: 'bar',
-                    data: { labels: Object.keys(branchCount), datasets:[{ label:'Ders Sayısı', data: Object.values(branchCount), backgroundColor:'#3b82f6' }] },
-                    options: { maintainAspectRatio:false, scales:{ y:{ticks:{color:'#94a3b8'}}, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
+                    data: { labels, datasets:[{ label:'Başarı %', data, backgroundColor:'#3b82f6' }] },
+                    options: { maintainAspectRatio:false, scales:{ y:{ min:0, max:100, ticks:{color:'#94a3b8'} }, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
                 });
             }
 
+            // 3. Okuma Hızı & Anlama Grafiği
+            const readCtx = document.getElementById('chart-reading');
+            if (readCtx) {
+                const pool = dataPool.filter(l => l.words || l.comprehension).slice(-15);
+                const labels = pool.map((_, i) => `Ders ${i+1}`);
+                appState.charts.reading = new Chart(readCtx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Kelime/Dak.', data: pool.map(l => l.words || 0), borderColor: '#a855f7', tension: 0.3, yAxisID: 'y' },
+                            { label: 'Anlama %', data: pool.map(l => l.comprehension || 0), borderColor: '#22c55e', tension: 0.3, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: { 
+                        maintainAspectRatio:false,
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#94a3b8' } },
+                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#22c55e' } }
+                        }
+                    }
+                });
+            }
+
+            // 4. Detaylı Test Performansı (Branşlara göre Doğru sayıları)
             const perfCtx = document.getElementById('chart-performance');
             if (perfCtx) {
-                const perfLabels = dataPool.slice(-10).map((l, i) => `Ders ${i+1}`);
-                const testData = dataPool.slice(-10).map(l => {
-                    if(!l.tests || l.tests.length === 0) return 0;
-                    let total = 0, correct = 0;
-                    l.tests.forEach(t => { total += parseInt(t.q || 0); correct += parseInt(t.d || 0); });
-                    return total > 0 ? (correct / total) * 100 : 0;
-                });
+                const pool = dataPool.filter(l => l.tests && l.tests.length > 0).slice(-10);
+                const labels = pool.map((_, i) => `Ders ${i+1}`);
+                
+                // Her branş için ayrı dataset
+                const datasets = appState.branches.map((branch, idx) => {
+                    const colors = ['#3b82f6','#ef4444','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#8b5cf6'];
+                    return {
+                        label: branch,
+                        data: pool.map(l => {
+                            const t = l.tests.find(test => test.branch === branch);
+                            return t ? parseInt(t.d || 0) : null;
+                        }),
+                        borderColor: colors[idx % colors.length],
+                        tension: 0.2,
+                        spanGaps: true
+                    };
+                }).filter(ds => ds.data.some(d => d !== null));
+
                 appState.charts.performance = new Chart(perfCtx, {
                     type: 'line',
-                    data: { labels: perfLabels, datasets:[{ label:'Başarı Oranı (%)', data: testData, borderColor:'#10b981', tension:0.4 }] },
-                    options: { maintainAspectRatio:false }
+                    data: { labels, datasets },
+                    options: { maintainAspectRatio:false, plugins: { legend: { labels: { font: { size: 9 } } } } }
                 });
             }
         }
@@ -781,10 +876,31 @@
             pdf.text(`Tarih: ${new Date(l.id).toLocaleDateString('tr-TR')} - Saat: ${l.time}`, 20, 50);
             pdf.text(`Branşlar: ${l.selectedBranches.join(', ')}`, 20, 60);
             pdf.text('TEST SONUÇLARI:', 20, 80);
-            (l.tests || []).forEach((t, i) => pdf.text(`${t.branch}: ${t.q} Soru / ${t.d} Doğru`, 25, 90 + (i*7)));
-            pdf.text('EĞİTMEN NOTLARI:', 20, 150);
-            pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 160);
+            (l.tests || []).forEach((t, i) => {
+                pdf.text(`${t.branch}: ${t.q}S - ${t.d}D - ${t.w}Y - ${t.e}B`, 25, 90 + (i*7));
+            });
+            pdf.text(`HIZLI OKUMA: ${l.words || 0} Kelime / %${l.comprehension || 0} Anlama`, 20, 140);
+            pdf.text('EĞİTMEN NOTLARI:', 20, 160);
+            pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 170);
             pdf.save(`${getStudentName(l.studentId)}_Ders_Notu.pdf`);
+        }
+
+        async function exportStatsPDF() {
+            const el = document.getElementById('stats-container');
+            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
+            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/png');
+            pdf.text('Ogrenci Gelisim Raporu', 105, 10, {align:'center'});
+            pdf.addImage(imgData, 'PNG', 10, 20, 190, 260);
+            pdf.save('Gelisim_Raporu.pdf');
+        }
+
+        async function exportAccountingPDF() {
+            const el = document.getElementById('section-accounting');
+            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
+            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 190, 150);
+            pdf.save('Muhasebe_Raporu.pdf');
         }
 
         // --- START ---

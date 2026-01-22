@@ -3,498 +3,766 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProEğitim - Bulut Senkronizasyonlu Eğitim Sistemi</title>
+    <title>EYS - Eğitim Yönetim Sistemi</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
-        .glass-card { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
-        .lesson-attended { border-left: 4px solid #10b981; background: rgba(16, 185, 129, 0.1); }
-        .lesson-absent { border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.1); }
-        .lesson-pending { border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.1); }
-        
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        
-        @media print { .no-print { display: none !important; } }
-        
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(200px, 1fr));
-            gap: 0.75rem;
-        }
-
-        @media (max-width: 768px) {
-            .calendar-grid { grid-template-columns: 1fr; }
-        }
-
-        .sync-spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .lesson-node { transition: all 0.2s; cursor: pointer; border-left: 4px solid #334155; }
+        .lesson-node:hover { transform: scale(1.02); }
+        .attendance-true { border-left-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .attendance-false { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        input, select, textarea { background: #1e293b !important; color: white !important; border: 1px solid #334155 !important; border-radius: 0.5rem; padding: 0.5rem; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .branch-chip { cursor: pointer; padding: 4px 10px; border-radius: 99px; border: 1px solid #334155; font-size: 11px; transition: all 0.2s; }
+        .branch-chip.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="min-h-screen pb-20 md:pb-0">
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+    <div id="loader" class="loading-overlay">
+        <i class="fas fa-circle-notch animate-spin text-4xl text-blue-500 mb-4"></i>
+        <p class="text-sm font-medium">Veriler Eşitleniyor...</p>
+    </div>
 
-        // Uygulama Linki Sabiti
-        const APP_URL = "https://script.google.com/macros/s/AKfycbyc-awN6OR00hqr4SuMYsTeC5vNMUeoXYMGiudUjHqbMoz2tbghSUl9aHW42_l4g-bzBA/exec";
+    <!-- Üst Navigasyon -->
+    <nav class="sticky top-0 z-50 glass-card px-4 py-3 flex justify-between items-center">
+        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+            <i class="fas fa-graduation-cap mr-2"></i>EYS Pro
+        </h1>
+        <div class="hidden md:flex space-x-6">
+            <button onclick="switchTab('calendar')" class="nav-link tab-active" id="nav-calendar">Takvim</button>
+            <button onclick="switchTab('students')" class="nav-link" id="nav-students">Öğrenciler</button>
+            <button onclick="switchTab('stats')" class="nav-link" id="nav-stats">İstatistik</button>
+            <button onclick="switchTab('accounting')" class="nav-link" id="nav-accounting">Muhasebe</button>
+        </div>
+        <div id="sync-status" class="text-xs text-slate-400">
+            <i class="fas fa-check-circle text-green-500 mr-1"></i> Bağlı
+        </div>
+    </nav>
 
-        const BRANCHES = ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"];
-        const EMOTIONS_MAP = [
-            { icon: "😢", label: "Üzgün", color: "#ef4444" },
-            { icon: "🥱", label: "Yorgun", color: "#f59e0b" },
-            { icon: "😐", label: "Hazır", color: "#3b82f6" },
-            { icon: "😊", label: "Keyifli", color: "#10b981" },
-            { icon: "🚀", label: "Enerjik", color: "#8b5cf6" }
-        ];
-        const GRADES = Array.from({length: 12}, (_, i) => i + 1);
+    <!-- Ana İçerik Alanı -->
+    <main class="container mx-auto p-4 max-w-6xl">
+        
+        <!-- TAKVİM BÖLÜMÜ -->
+        <section id="section-calendar" class="tab-content">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div class="flex items-center space-x-4">
+                    <button class="p-2 glass-card rounded-lg" onclick="changeWeek(-1)"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="calendar-date-range" class="text-lg font-semibold uppercase tracking-tight">Ocak 2024</h2>
+                    <button class="p-2 glass-card rounded-lg" onclick="changeWeek(1)"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <input type="week" id="calendar-week-picker" class="text-sm" onchange="jumpToWeek(this.value)">
+                    <button onclick="exportFullCalendarPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm flex-1 md:flex-none">
+                        <i class="fas fa-file-pdf mr-2"></i>Programı İndir
+                    </button>
+                </div>
+            </div>
 
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('calendar');
-            const [students, setStudents] = useState([]);
-            const [lessons, setLessons] = useState([]);
-            const [transactions, setTransactions] = useState([]);
-            const [priceLogs, setPriceLogs] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [syncing, setSyncing] = useState(false);
-            const [showCopyMsg, setShowCopyMsg] = useState(false);
+            <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-7 gap-4">
+                <!-- Günler JS ile oluşturulacak -->
+            </div>
+        </section>
 
-            const fetchData = useCallback(() => {
-                setLoading(true);
-                if (typeof google !== 'undefined') {
-                    google.script.run
-                        .withSuccessHandler((data) => {
-                            setStudents(data.students || []);
-                            setLessons(data.lessons || []);
-                            setTransactions(data.transactions || []);
-                            setPriceLogs(data.priceLogs || []);
-                            setLoading(false);
-                        })
-                        .getAppData();
-                } else {
-                    setLoading(false);
-                }
-            }, []);
+        <!-- ÖĞRENCİLER BÖLÜMÜ -->
+        <section id="section-students" class="tab-content hidden">
+            <div class="flex flex-col md:flex-row justify-between mb-6 gap-4">
+                <div class="relative flex-1">
+                    <i class="fas fa-search absolute left-3 top-3 text-slate-500"></i>
+                    <input type="text" placeholder="Öğrenci adı ile ara..." class="w-full pl-10" onkeyup="filterStudents(this.value)">
+                </div>
+                <button onclick="openStudentModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">
+                    <i class="fas fa-user-plus mr-2"></i>Yeni Öğrenci
+                </button>
+            </div>
+            <div id="student-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <div id="empty-student-msg" class="text-center py-20 text-slate-500 hidden">
+                <i class="fas fa-users-slash text-4xl mb-4"></i>
+                <p>Kayıtlı öğrenci bulunamadı.</p>
+            </div>
+        </section>
 
-            useEffect(() => {
-                fetchData();
-            }, [fetchData]);
+        <!-- İSTATİSTİK BÖLÜMÜ -->
+        <section id="section-stats" class="tab-content hidden">
+            <div class="mb-6 flex flex-col md:flex-row gap-4 items-center">
+                <select id="stats-student-select" class="w-full md:w-64" onchange="loadStudentStats(this.value)">
+                    <option value="">Öğrenci Seçiniz</option>
+                </select>
+                <button onclick="exportStatsPDF()" class="bg-purple-600 text-white px-4 py-2 rounded-lg w-full md:w-auto">
+                    <i class="fas fa-chart-pie mr-2"></i>Gelişim Raporu (PDF)
+                </button>
+            </div>
+            
+            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card p-4 rounded-xl">
+                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
+                    <div class="h-[250px]"><canvas id="chart-mood"></canvas></div>
+                </div>
+                <div class="glass-card p-4 rounded-xl">
+                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Branş Yoğunluğu</h3>
+                    <div class="h-[250px]"><canvas id="chart-subjects"></canvas></div>
+                </div>
+                <div class="glass-card p-4 rounded-xl md:col-span-2">
+                    <h3 class="font-bold mb-4 text-sm text-slate-400 uppercase tracking-widest">Akademik Performans (Test & Okuma)</h3>
+                    <div class="h-[300px]"><canvas id="chart-performance"></canvas></div>
+                </div>
+            </div>
+        </section>
 
-            const syncWithServer = (newData) => {
-                setSyncing(true);
-                if (typeof google !== 'undefined') {
-                    google.script.run
-                        .withSuccessHandler(() => setSyncing(false))
-                        .saveAppData(newData);
-                }
-            };
+        <!-- MUHASEBE BÖLÜMÜ -->
+        <section id="section-accounting" class="tab-content hidden">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+                <div class="glass-card p-4 rounded-xl border-t-4 border-blue-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Alacak</p>
+                    <h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-green-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Tahsilat</p>
+                    <h4 id="acc-total-paid" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-red-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Gider</p>
+                    <h4 id="acc-total-expense" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-purple-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Kasa Bakiye</p>
+                    <h4 id="acc-balance" class="text-lg font-bold">₺0</h4>
+                </div>
+            </div>
 
-            const updateStateAndSync = (type, action, payload) => {
-                let currentStudents = [...students];
-                let currentLessons = [...lessons];
-                let currentTransactions = [...transactions];
-                let currentPriceLogs = [...priceLogs];
+            <div class="flex flex-col md:flex-row justify-between mb-4 gap-4">
+                <div class="flex space-x-2">
+                    <button onclick="openTransactionModal('payment')" class="bg-green-600 px-4 py-2 rounded text-sm font-bold"><i class="fas fa-plus-circle mr-2"></i>Ödeme Al</button>
+                    <button onclick="openTransactionModal('expense')" class="bg-red-600 px-4 py-2 rounded text-sm font-bold"><i class="fas fa-minus-circle mr-2"></i>Harcama</button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" placeholder="Tabloda ara..." class="text-sm px-3" onkeyup="renderAccounting(this.value)">
+                    <button onclick="exportAccountingPDF()" class="bg-slate-700 px-4 py-2 rounded text-sm"><i class="fas fa-print"></i></button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto glass-card rounded-xl">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400">
+                            <th class="p-4">Öğrenci</th>
+                            <th class="p-4">Ders Sayısı</th>
+                            <th class="p-4">Toplam Borç</th>
+                            <th class="p-4">Ödenen</th>
+                            <th class="p-4">Kalan</th>
+                            <th class="p-4">Aksiyon</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accounting-table-body"></tbody>
+                    <tfoot>
+                        <tr class="bg-slate-800/30 font-bold border-t border-slate-700">
+                            <td class="p-4" colspan="2">GENEL TOPLAM</td>
+                            <td class="p-4 text-blue-400" id="foot-debt">₺0</td>
+                            <td class="p-4 text-green-400" id="foot-paid">₺0</td>
+                            <td class="p-4 text-red-400" id="foot-balance">₺0</td>
+                            <td class="p-4"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Mobil Navigasyon -->
+    <div class="fixed bottom-0 left-0 right-0 md:hidden glass-card flex justify-around p-3 z-50">
+        <button onclick="switchTab('calendar')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-calendar"><i class="fas fa-calendar-alt text-lg"></i><span>Takvim</span></button>
+        <button onclick="switchTab('students')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-students"><i class="fas fa-users text-lg"></i><span>Öğrenciler</span></button>
+        <button onclick="switchTab('stats')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-stats"><i class="fas fa-chart-bar text-lg"></i><span>İstatistik</span></button>
+        <button onclick="switchTab('accounting')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-accounting"><i class="fas fa-wallet text-lg"></i><span>Muhasebe</span></button>
+    </div>
+
+    <!-- MODALLAR -->
+    <!-- Ders Giriş Modalı -->
+    <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
+            <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
+            <h2 class="text-xl font-bold mb-6 border-b border-slate-700 pb-2">Ders Ayrıntıları</h2>
+            
+            <form id="lesson-form" class="space-y-6" onsubmit="saveLesson(event)">
+                <input type="hidden" id="lesson-id">
+                <input type="hidden" id="lesson-day">
                 
-                if (type === 'students') {
-                    if (action === 'save') {
-                        const exists = currentStudents.find(s => s.id === payload.id);
-                        currentStudents = exists ? currentStudents.map(s => s.id === payload.id ? payload : s) : [...currentStudents, payload];
-                    } else if (action === 'delete') {
-                        currentStudents = currentStudents.filter(s => s.id !== payload);
-                    }
-                    setStudents(currentStudents);
-                }
-
-                if (type === 'lessons') {
-                    if (action === 'save') {
-                        const exists = currentLessons.find(l => l.id === payload.id);
-                        currentLessons = exists ? currentLessons.map(l => l.id === payload.id ? payload : l) : [...currentLessons, payload];
-                    } else if (action === 'delete') {
-                        currentLessons = currentLessons.filter(l => l.id !== payload);
-                    }
-                    setLessons(currentLessons);
-                }
-
-                syncWithServer({ 
-                    students: currentStudents, 
-                    lessons: currentLessons, 
-                    transactions: currentTransactions, 
-                    priceLogs: currentPriceLogs 
-                });
-            };
-
-            const copyAppLink = () => {
-                const el = document.createElement('textarea');
-                el.value = APP_URL;
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                setShowCopyMsg(true);
-                setTimeout(() => setShowCopyMsg(false), 2000);
-            };
-
-            const getWeekDays = (baseDate) => {
-                const date = new Date(baseDate);
-                const day = date.getDay();
-                const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
-                const monday = new Date(date.setDate(diff));
-                return Array.from({length: 7}, (_, i) => {
-                    const d = new Date(monday);
-                    d.setDate(monday.getDate() + i);
-                    return d.toISOString().split('T')[0];
-                });
-            };
-
-            if (loading) {
-                return (
-                    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-950">
-                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full sync-spinner mb-4"></div>
-                        <p className="text-slate-400 font-bold animate-pulse uppercase tracking-widest text-[10px]">Veriler Buluttan Yükleniyor...</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] mb-1 text-slate-500 uppercase">Öğrenci</label>
+                        <select id="lesson-student" class="w-full" required></select>
                     </div>
-                );
+                    <div>
+                        <label class="block text-[10px] mb-1 text-slate-500 uppercase">Zamanlama & Katılım</label>
+                        <div class="flex gap-2">
+                            <input type="time" id="lesson-time" class="flex-1" required>
+                            <label class="flex items-center space-x-2 px-3 glass-card rounded cursor-pointer select-none">
+                                <input type="checkbox" id="lesson-attendance" class="w-4 h-4 rounded text-blue-600">
+                                <span class="text-xs">Burada</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] mb-2 text-slate-500 uppercase">Branş Seçimi</label>
+                    <div id="branch-container" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-[10px] text-slate-500 uppercase font-bold">Akademik Test Girişleri</label>
+                        <button type="button" onclick="addTestRow()" class="text-[10px] bg-blue-500 text-white px-3 py-1 rounded-full hover:bg-blue-600">
+                            <i class="fas fa-plus mr-1"></i>Test Ekle
+                        </button>
+                    </div>
+                    <div id="test-rows-container" class="space-y-2"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] mb-1 text-slate-500 uppercase">Hızlı Okuma Performansı</label>
+                        <div class="flex gap-2">
+                            <input type="number" placeholder="Dak./Kelime" id="l-words" class="w-full">
+                            <input type="number" placeholder="Anlama %" id="l-comp" class="w-full">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] mb-2 text-slate-500 uppercase">Gözlemlenen Duygu Durumu</label>
+                        <div class="flex gap-3 justify-between">
+                            <label class="cursor-pointer text-3xl opacity-30 hover:opacity-100 transition-all"><input type="radio" name="mood" value="1" class="hidden peer"> <span class="peer-checked:opacity-100 peer-checked:scale-125 inline-block">😡</span></label>
+                            <label class="cursor-pointer text-3xl opacity-30 hover:opacity-100 transition-all"><input type="radio" name="mood" value="2" class="hidden peer"> <span class="peer-checked:opacity-100 peer-checked:scale-125 inline-block">😕</span></label>
+                            <label class="cursor-pointer text-3xl opacity-30 hover:opacity-100 transition-all"><input type="radio" name="mood" value="3" class="hidden peer"> <span class="peer-checked:opacity-100 peer-checked:scale-125 inline-block">😐</span></label>
+                            <label class="cursor-pointer text-3xl opacity-30 hover:opacity-100 transition-all"><input type="radio" name="mood" value="4" class="hidden peer"> <span class="peer-checked:opacity-100 peer-checked:scale-125 inline-block">🙂</span></label>
+                            <label class="cursor-pointer text-3xl opacity-30 hover:opacity-100 transition-all"><input type="radio" name="mood" value="5" class="hidden peer"> <span class="peer-checked:opacity-100 peer-checked:scale-125 inline-block">😊</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <textarea id="lesson-notes" placeholder="Bu derste neler yapıldı? (Notlar)" class="w-full h-24 text-sm"></textarea>
+                    <textarea id="lesson-reminders" placeholder="Sonraki ders için hatırlatmalar..." class="w-full h-24 text-sm border-dashed border-yellow-500/30"></textarea>
+                </div>
+
+                <div class="flex justify-between items-center pt-6 border-t border-slate-700">
+                    <button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-sm hover:underline"><i class="fas fa-file-download mr-2"></i>PDF Dökümü</button>
+                    <div class="space-x-3">
+                        <button type="button" onclick="closeModal('lesson-modal')" class="bg-slate-800 px-5 py-2 rounded-lg text-sm">Vazgeç</button>
+                        <button type="submit" class="bg-blue-600 px-8 py-2 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20">Kaydet</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Diğer Modallar (Öğrenci, İşlem vb.) ... -->
+    <div id="student-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-lg rounded-2xl p-6 relative">
+            <button onclick="closeModal('student-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="student-modal-title" class="text-xl font-bold mb-6">Öğrenci Kaydı</h2>
+            <form id="student-form" class="space-y-4" onsubmit="saveStudent(event)">
+                <input type="hidden" id="student-id">
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">Tam Adı</label>
+                    <input type="text" id="student-name" class="w-full" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs mb-1 text-slate-500 uppercase">Eğitim Seviyesi</label>
+                        <select id="student-grade" class="w-full">
+                            <option value="1">1. Sınıf</option><option value="2">2. Sınıf</option><option value="3">3. Sınıf</option><option value="4">4. Sınıf</option><option value="5">5. Sınıf</option><option value="6">6. Sınıf</option><option value="7">7. Sınıf</option><option value="8">8. Sınıf</option><option value="9">9. Sınıf</option><option value="10">10. Sınıf</option><option value="11">11. Sınıf</option><option value="12">12. Sınıf</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-slate-500 uppercase">Birim Ders Ücreti (₺)</label>
+                        <input type="number" id="student-price" class="w-full" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">Eğitmen Notları</label>
+                    <textarea id="student-notes" class="w-full h-24"></textarea>
+                </div>
+                <div id="price-log-container" class="hidden bg-slate-800/50 p-3 rounded-lg">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Fiyat Revizyon Geçmişi</p>
+                    <ul id="price-log-list" class="text-[10px] text-slate-400 space-y-1"></ul>
+                </div>
+                <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold mt-4">Kayıt İşlemini Tamamla</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
+            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">Finansal Veri Girişi</h2>
+            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
+                <input type="hidden" id="transaction-type">
+                <div id="student-transaction-div">
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İlgili Öğrenci</label>
+                    <select id="transaction-student" class="w-full"></select>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Tutarı (₺)</label>
+                    <input type="number" id="transaction-amount" class="w-full" required>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Açıklaması</label>
+                    <input type="text" id="transaction-desc" class="w-full" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4 shadow-lg shadow-blue-500/20">Hareketi Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbzgqFZut49ZI6TwqKPYIR9Vaa4HNpgA6InHarWwzqZ40wNucWpYst_jVjGHpcZPIeZ8/exec";
+        
+        let appState = {
+            currentTab: 'calendar',
+            students: [],
+            lessons: [],
+            accounting: [],
+            priceLogs: [],
+            currentWeekOffset: 0,
+            branches: ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"],
+            charts: { mood: null, subjects: null, performance: null }
+        };
+
+        // --- CORE FETCH ---
+        async function fetchData() {
+            if(!API_URL) return;
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                if(data && typeof data === 'object' && Object.keys(data).length > 0) {
+                    appState = {...appState, ...data};
+                }
+                document.getElementById('loader').classList.add('hidden');
+                initCalendar();
+            } catch(e) {
+                console.error("Fetch hatası:", e);
+                document.getElementById('loader').classList.add('hidden');
+                initCalendar(); // Hata olsa bile başlat
             }
+        }
 
-            return (
-                <div className="flex flex-col md:flex-row h-screen overflow-hidden">
-                    {/* Sidebar */}
-                    <div className="fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex justify-around p-2 md:relative md:w-64 md:h-screen md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 z-50 no-print">
-                        <div className="hidden md:flex items-center gap-3 p-6 mb-4">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-600/20">
-                                <i className="lucide-graduation-cap w-5 h-5 text-white"></i>
-                            </div>
-                            <span className="text-xl font-black text-white tracking-tight italic uppercase">PROEĞİTİM</span>
-                        </div>
-                        
-                        <button onClick={() => setActiveTab('calendar')} className={`flex flex-col md:flex-row items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'calendar' ? 'text-blue-400 bg-blue-400/10' : 'text-slate-500 hover:text-slate-300'}`}>
-                            <i className="lucide-calendar w-5 h-5"></i>
-                            <span className="text-[10px] md:text-sm font-bold uppercase tracking-wide">Takvim</span>
-                        </button>
-                        
-                        <button onClick={() => setActiveTab('students')} className={`flex flex-col md:flex-row items-center gap-3 p-3 rounded-xl transition-all ${activeTab === 'students' ? 'text-blue-400 bg-blue-400/10' : 'text-slate-500 hover:text-slate-300'}`}>
-                            <i className="lucide-users w-5 h-5"></i>
-                            <span className="text-[10px] md:text-sm font-bold uppercase tracking-wide">Öğrenciler</span>
-                        </button>
+        async function saveToCloud() {
+            if(!API_URL) return;
+            document.getElementById('sync-status').innerHTML = '<i class="fas fa-sync-alt animate-spin text-blue-400 mr-1"></i> Kaydediliyor...';
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(appState)
+                });
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> Senkronize';
+            } catch(e) {
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> Kayıt Hatası';
+            }
+        }
 
-                        <div className="mt-auto p-4 hidden md:block space-y-4">
-                            <button onClick={copyAppLink} className="w-full flex items-center gap-2 p-3 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all text-xs font-bold uppercase border border-slate-700">
-                                <i className={`lucide-${showCopyMsg ? 'check' : 'link'} w-4 h-4 ${showCopyMsg ? 'text-green-500' : ''}`}></i>
-                                {showCopyMsg ? 'Kopyalandı!' : 'Linki Kopyala'}
-                            </button>
-                            
-                            <div className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase">
-                                <div className={`w-2 h-2 rounded-full ${syncing ? 'bg-yellow-500 animate-ping' : 'bg-green-500'}`}></div>
-                                {syncing ? 'Eşitleniyor...' : 'Bulutla Eşitlendi'}
-                            </div>
-                        </div>
+        // --- TAB MANAGEMENT ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('tab-active'));
+            document.getElementById(`nav-${tabId}`)?.classList.add('tab-active');
+            
+            document.querySelectorAll('[id^="m-nav-"]').forEach(el => el.classList.replace('text-blue-400', 'text-slate-400'));
+            document.getElementById(`m-nav-${tabId}`)?.classList.replace('text-slate-400', 'text-blue-400');
+
+            if(tabId === 'stats') initStats();
+            if(tabId === 'students') renderStudents();
+            if(tabId === 'accounting') renderAccounting();
+        }
+
+        // --- CALENDAR ---
+        function initCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+            
+            updateCalendarRange();
+            days.forEach((day, index) => {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'glass-card p-3 rounded-xl min-h-[300px] flex flex-col';
+                dayEl.innerHTML = `
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+                        <span class="font-bold text-xs text-blue-400 uppercase tracking-tighter">${day}</span>
                     </div>
+                    <div id="day-lessons-${index}" class="flex-1 space-y-2"></div>
+                    <button onclick="openLessonModal(${index})" class="mt-4 w-full py-2 border border-dashed border-slate-600 rounded-lg text-[9px] hover:bg-slate-800 text-slate-500 font-bold">
+                        <i class="fas fa-plus-circle mr-1"></i>YENİ DERS
+                    </button>
+                `;
+                grid.appendChild(dayEl);
+            });
+            renderAllLessons();
+        }
 
-                    {/* Main Content */}
-                    <main className="flex-1 overflow-y-auto bg-slate-950 pb-20 md:pb-0">
-                        {activeTab === 'calendar' && (
-                            <CalendarView 
-                                lessons={lessons} 
-                                students={students} 
-                                onSaveLesson={(l) => updateStateAndSync('lessons', 'save', l)} 
-                                onDeleteLesson={(id) => updateStateAndSync('lessons', 'delete', id)}
-                                getWeekDays={getWeekDays}
-                            />
-                        )}
-                        {activeTab === 'students' && (
-                            <StudentsView 
-                                students={students} 
-                                onSaveStudent={(s) => updateStateAndSync('students', 'save', s)}
-                                onDeleteStudent={(id) => updateStateAndSync('students', 'delete', id)}
-                            />
-                        )}
-                    </main>
-                </div>
-            );
-        };
+        function updateCalendarRange() {
+            const today = new Date();
+            const first = new Date(today);
+            const dayNum = today.getDay();
+            const diff = today.getDate() - dayNum + (dayNum === 0 ? -6 : 1) + (appState.currentWeekOffset * 7);
+            first.setDate(diff);
+            const last = new Date(first); last.setDate(first.getDate() + 6);
+            const opt = { day: 'numeric', month: 'long' };
+            document.getElementById('calendar-date-range').innerText = `${first.toLocaleDateString('tr-TR', opt)} - ${last.toLocaleDateString('tr-TR', opt)} ${last.getFullYear()}`;
+        }
 
-        const CalendarView = ({ lessons, students, onSaveLesson, onDeleteLesson, getWeekDays }) => {
-            const [baseDate, setBaseDate] = useState(new Date().toISOString().split('T')[0]);
-            const weekDays = useMemo(() => getWeekDays(baseDate), [baseDate, getWeekDays]);
-            const [selectedLesson, setSelectedLesson] = useState(null);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [activeDay, setActiveDay] = useState(null);
+        function changeWeek(off) { appState.currentWeekOffset += off; initCalendar(); }
+        function jumpToWeek(v) { if(!v) return; appState.currentWeekOffset = 0; initCalendar(); }
 
-            const exportPDF = (elementId, orientation = 'portrait', fileName = 'takvim.pdf') => {
-                const element = document.getElementById(elementId);
-                const opt = { margin: 5, filename: fileName, image: { type: 'jpeg', quality: 0.98 },
-                              html2canvas: { scale: 2, useCORS: true, backgroundColor: '#020617' },
-                              jsPDF: { unit: 'mm', format: 'a4', orientation: orientation } };
-                html2pdf().set(opt).from(element).save();
+        function renderAllLessons() {
+            document.querySelectorAll('[id^="day-lessons-"]').forEach(el => el.innerHTML = '');
+            appState.lessons.forEach(l => {
+                const container = document.getElementById(`day-lessons-${l.day}`);
+                if(container) {
+                    const node = document.createElement('div');
+                    node.className = `lesson-node p-2 rounded-lg text-[10px] ${l.attendance ? 'attendance-true' : 'attendance-false shadow-lg shadow-red-500/5'}`;
+                    node.onclick = () => openLessonModal(l.day, l.id);
+                    node.innerHTML = `
+                        <div class="font-bold truncate flex justify-between">
+                            <span>${l.time}</span>
+                            <span class="text-[9px] opacity-70">${getStudentName(l.studentId)}</span>
+                        </div>
+                        <div class="text-[9px] text-slate-400 mt-1 truncate">${(l.selectedBranches || []).join(', ')}</div>
+                    `;
+                    container.appendChild(node);
+                }
+            });
+        }
+
+        // --- LESSON ---
+        function openLessonModal(day, id = null) {
+            const modal = document.getElementById('lesson-modal');
+            const form = document.getElementById('lesson-form');
+            form.reset();
+            
+            document.getElementById('lesson-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            const bc = document.getElementById('branch-container');
+            bc.innerHTML = appState.branches.map(b => `<div class="branch-chip" onclick="toggleBranchChip(this)">${b}</div>`).join('');
+            
+            document.getElementById('test-rows-container').innerHTML = '';
+            document.getElementById('lesson-day').value = day;
+            document.getElementById('lesson-id').value = id || "";
+
+            if(id) {
+                const l = appState.lessons.find(x => x.id == id);
+                document.getElementById('lesson-student').value = l.studentId;
+                document.getElementById('lesson-time').value = l.time;
+                document.getElementById('lesson-attendance').checked = l.attendance;
+                document.getElementById('l-words').value = l.words || "";
+                document.getElementById('l-comp').value = l.comprehension || "";
+                document.getElementById('lesson-notes').value = l.notes || "";
+                document.getElementById('lesson-reminders').value = l.reminders || "";
+                
+                if(l.mood) { const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); if(r) r.checked = true; }
+                (l.selectedBranches || []).forEach(bName => {
+                    const chip = [...bc.children].find(c => c.innerText === bName);
+                    if(chip) chip.classList.add('active');
+                });
+                (l.tests || []).forEach(t => addTestRow(t));
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function toggleBranchChip(el) { el.classList.toggle('active'); }
+
+        function addTestRow(data = null) {
+            const container = document.getElementById('test-rows-container');
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-5 gap-2 items-center';
+            row.innerHTML = `
+                <select class="text-[10px] col-span-2 py-1">
+                    ${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
+                </select>
+                <input type="number" placeholder="Soru" class="text-[10px] py-1" value="${data?.q || ''}">
+                <input type="number" placeholder="Doğru" class="text-[10px] py-1" value="${data?.d || ''}">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500"><i class="fas fa-trash-alt"></i></button>
+            `;
+            container.appendChild(row);
+        }
+
+        function saveLesson(e) {
+            e.preventDefault();
+            const id = document.getElementById('lesson-id').value;
+            const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
+            
+            const tests = [];
+            document.getElementById('test-rows-container').children.forEach(row => {
+                tests.push({
+                    branch: row.querySelector('select').value,
+                    q: row.querySelectorAll('input')[0].value,
+                    d: row.querySelectorAll('input')[1].value
+                });
+            });
+
+            const lesson = {
+                id: id ? parseInt(id) : Date.now(),
+                studentId: parseInt(document.getElementById('lesson-student').value),
+                day: parseInt(document.getElementById('lesson-day').value),
+                time: document.getElementById('lesson-time').value,
+                attendance: document.getElementById('lesson-attendance').checked,
+                selectedBranches: branches,
+                tests: tests,
+                words: document.getElementById('l-words').value,
+                comprehension: document.getElementById('l-comp').value,
+                mood: document.querySelector('input[name="mood"]:checked')?.value || null,
+                notes: document.getElementById('lesson-notes').value,
+                reminders: document.getElementById('lesson-reminders').value,
+                unitPrice: getStudentPrice(parseInt(document.getElementById('lesson-student').value))
             };
 
-            return (
-                <div className="p-4 md:p-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 no-print">
-                        <div>
-                            <h1 className="text-3xl font-black text-white italic tracking-tighter">Haftalık Takvim</h1>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1 italic">Ders Programı & Bulut Senkronizasyon</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                             <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 items-center">
-                                <button onClick={() => {
-                                    const d = new Date(baseDate); d.setDate(d.getDate() - 7);
-                                    setBaseDate(d.toISOString().split('T')[0]);
-                                }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><i className="lucide-chevron-left w-5 h-5"></i></button>
-                                <input type="date" className="bg-transparent px-2 text-sm font-bold text-white focus:outline-none" value={baseDate} onChange={(e) => setBaseDate(e.target.value)} />
-                                <button onClick={() => {
-                                    const d = new Date(baseDate); d.setDate(d.getDate() + 7);
-                                    setBaseDate(d.toISOString().split('T')[0]);
-                                }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><i className="lucide-chevron-right w-5 h-5"></i></button>
+            if(id) {
+                const idx = appState.lessons.findIndex(x => x.id == id);
+                appState.lessons[idx] = lesson;
+            } else {
+                appState.lessons.push(lesson);
+            }
+            
+            closeModal('lesson-modal');
+            renderAllLessons();
+            saveToCloud();
+        }
+
+        // --- STUDENTS ---
+        function renderStudents(filter = "") {
+            const list = document.getElementById('student-list');
+            const empty = document.getElementById('empty-student-msg');
+            list.innerHTML = '';
+            const data = appState.students.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()));
+            if(data.length === 0) { empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); }
+
+            data.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'glass-card p-4 rounded-xl flex flex-col justify-between border-l-4 border-blue-500';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase">${s.grade}. SINIF</span>
+                            <div class="space-x-1">
+                                <button onclick="openStudentModal(${s.id})" class="text-xs text-slate-500 hover:text-white"><i class="fas fa-edit"></i></button>
+                                <button onclick="deleteStudent(${s.id})" class="text-xs text-red-900 hover:text-red-500"><i class="fas fa-trash"></i></button>
                             </div>
-                            <button onClick={() => exportPDF('calendar-render', 'landscape', 'Haftalik_Program.pdf')} className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 transition uppercase tracking-tighter">
-                                <i className="lucide-printer w-4 h-4 text-blue-400"></i> YAZDIR
-                            </button>
                         </div>
+                        <h3 class="font-bold text-base truncate">${s.name}</h3>
+                        <p class="text-[10px] text-slate-500 mt-2 line-clamp-2">${s.notes || '-'}</p>
                     </div>
-
-                    <div id="calendar-render" className="calendar-grid">
-                        {weekDays.map(day => {
-                            const dayLessons = lessons.filter(l => l.date === day).sort((a,b) => a.time.localeCompare(b.time));
-                            const isToday = day === new Date().toISOString().split('T')[0];
-                            return (
-                                <div key={day} className={`flex flex-col min-h-[500px] rounded-3xl border transition-all ${isToday ? 'bg-blue-600/[0.03] border-blue-500/30 ring-1 ring-blue-500/10' : 'bg-slate-900/40 border-slate-800/60'}`}>
-                                    <div className={`p-4 text-center border-b border-slate-800/50 ${isToday ? 'bg-blue-600/5' : ''}`}>
-                                        <div className={`text-[10px] uppercase font-black tracking-widest ${isToday ? 'text-blue-400' : 'text-slate-500'}`}>
-                                            {new Date(day).toLocaleDateString('tr-TR', { weekday: 'long' })}
-                                        </div>
-                                        <div className={`text-2xl font-black mt-1 ${isToday ? 'text-blue-500' : 'text-slate-200'}`}>
-                                            {new Date(day).getDate()}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 p-2 space-y-2 overflow-y-auto custom-scrollbar">
-                                        {dayLessons.map(lesson => {
-                                            const student = students.find(s => s.id === lesson.studentId);
-                                            return (
-                                                <div key={lesson.id} onClick={() => { setSelectedLesson(lesson); setIsModalOpen(true); }} className={`p-3 rounded-2xl cursor-pointer transition-all hover:translate-y-[-2px] border border-transparent hover:border-white/10 ${lesson.attendance === 'geldi' ? 'lesson-attended' : lesson.attendance === 'gelmedi' ? 'lesson-absent' : 'lesson-pending'}`}>
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <span className="text-[10px] font-black text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">{lesson.time}</span>
-                                                        <span>{lesson.emotion}</span>
-                                                    </div>
-                                                    <div className="text-xs font-black text-slate-100 truncate">{student?.name || 'Belirsiz'}</div>
-                                                    <div className="text-[9px] text-slate-500 font-bold uppercase truncate">{Array.isArray(lesson.branches) ? lesson.branches.join(', ') : lesson.branch}</div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <div className="p-2 no-print">
-                                        <button onClick={() => { setActiveDay(day); setSelectedLesson(null); setIsModalOpen(true); }} className="w-full py-3 rounded-2xl bg-slate-800/40 hover:bg-slate-800 text-slate-500 hover:text-white transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-dashed border-slate-700">
-                                            <i className="lucide-plus w-3 h-3"></i> Ders Ekle
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div class="mt-4 flex justify-between items-center pt-3 border-t border-slate-800">
+                        <span class="font-bold text-green-500 text-sm">₺${s.price} <span class="text-[9px] opacity-40">/ saat</span></span>
+                        <button onclick="exportStudentProfile(${s.id})" class="text-[9px] bg-slate-800 px-2 py-1 rounded uppercase tracking-tighter">Profil Aktar</button>
                     </div>
+                `;
+                list.appendChild(card);
+            });
+        }
 
-                    {isModalOpen && (
-                        <LessonModal 
-                            lesson={selectedLesson} 
-                            students={students} 
-                            initialDate={activeDay}
-                            onClose={() => setIsModalOpen(false)}
-                            onSave={onSaveLesson}
-                            onDelete={onDeleteLesson}
-                        />
-                    )}
-                </div>
-            );
-        };
+        function openStudentModal(id = null) {
+            const m = document.getElementById('student-modal');
+            const f = document.getElementById('student-form'); f.reset();
+            document.getElementById('student-id').value = id || "";
+            document.getElementById('price-log-container').classList.add('hidden');
 
-        const LessonModal = ({ lesson, students, initialDate, onClose, onSave, onDelete }) => {
-            const [form, setForm] = useState(lesson || {
-                id: Date.now().toString(),
-                studentId: '',
-                date: initialDate,
-                time: '09:00',
-                branches: [],
-                notes: '',
-                emotion: '😐',
-                attendance: 'bekliyor'
+            if(id) {
+                const s = appState.students.find(x => x.id == id);
+                document.getElementById('student-name').value = s.name;
+                document.getElementById('student-grade').value = s.grade;
+                document.getElementById('student-price').value = s.price;
+                document.getElementById('student-notes').value = s.notes || "";
+                
+                const logs = appState.priceLogs.filter(l => l.studentId == id);
+                if(logs.length > 0) {
+                    document.getElementById('price-log-container').classList.remove('hidden');
+                    document.getElementById('price-log-list').innerHTML = logs.map(l => `<li>${l.date}: ₺${l.old} ➔ ₺${l.new}</li>`).join('');
+                }
+            }
+            m.classList.remove('hidden');
+        }
+
+        function saveStudent(e) {
+            e.preventDefault();
+            const id = document.getElementById('student-id').value;
+            const price = parseFloat(document.getElementById('student-price').value);
+            
+            if(id) {
+                const idx = appState.students.findIndex(x => x.id == id);
+                const old = appState.students[idx];
+                if(old.price !== price) {
+                    appState.priceLogs.push({ studentId: parseInt(id), old: old.price, new: price, date: new Date().toLocaleString('tr-TR') });
+                }
+                appState.students[idx] = { ...old, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value };
+            } else {
+                appState.students.push({ id: Date.now(), name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value });
+            }
+            closeModal('student-modal');
+            renderStudents();
+            updateStatsSelect();
+            saveToCloud();
+        }
+
+        function deleteStudent(id) {
+            if(!confirm("Bu öğrenciyi ve tüm kayıtlarını kalıcı olarak silmek istiyor musunuz?")) return;
+            appState.students = appState.students.filter(s => s.id !== id);
+            appState.lessons = appState.lessons.filter(l => l.studentId !== id);
+            appState.accounting = appState.accounting.filter(a => a.studentId !== id);
+            renderStudents();
+            updateStatsSelect();
+            saveToCloud();
+        }
+
+        // --- ACCOUNTING ---
+        function renderAccounting(q = "") {
+            const body = document.getElementById('accounting-table-body');
+            body.innerHTML = '';
+            let tD = 0, tP = 0, tE = 0;
+            
+            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+                const lessons = appState.lessons.filter(l => l.studentId === s.id && l.attendance);
+                const debt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
+                const paid = appState.accounting.filter(a => a.studentId === s.id && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
+                tD += debt; tP += paid;
+
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
+                row.innerHTML = `
+                    <td class="p-4 font-medium">${s.name}</td>
+                    <td class="p-4">${lessons.length}</td>
+                    <td class="p-4">₺${debt}</td>
+                    <td class="p-4 text-green-500 font-bold">₺${paid}</td>
+                    <td class="p-4 font-bold ${debt-paid > 0 ? 'text-red-500' : 'text-blue-500'}">₺${debt-paid}</td>
+                    <td class="p-4"><button onclick="viewHistory(${s.id})" class="text-slate-500"><i class="fas fa-history"></i></button></td>
+                `;
+                body.appendChild(row);
             });
 
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
-                    <div className="bg-slate-900 w-full max-w-2xl rounded-3xl p-8 border border-slate-800 shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-black text-white italic">{lesson ? 'Ders Detayı' : 'Yeni Ders Kaydı'}</h2>
-                            <button onClick={onClose} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition"><i className="lucide-x w-5 h-5"></i></button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Öğrenci Seçimi</label>
-                                    <select className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm text-white" value={form.studentId} onChange={e => setForm({...form, studentId: e.target.value})}>
-                                        <option value="">Öğrenci Seçin</option>
-                                        {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input type="date" className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm text-white" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                                    <input type="time" className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl font-bold text-sm text-white" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
-                                </div>
-                                <textarea placeholder="Ders Notları..." className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl h-24 text-sm text-white outline-none" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}></textarea>
-                            </div>
+            tE = appState.accounting.filter(a => a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
+            document.getElementById('acc-total-debt').innerText = `₺${tD}`;
+            document.getElementById('acc-total-paid').innerText = `₺${tP}`;
+            document.getElementById('acc-total-expense').innerText = `₺${tE}`;
+            document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
+            
+            document.getElementById('foot-debt').innerText = `₺${tD}`;
+            document.getElementById('foot-paid').innerText = `₺${tP}`;
+            document.getElementById('foot-balance').innerText = `₺${tD - tP}`;
+        }
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Uygulanan Branşlar</label>
-                                    <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 rounded-2xl border border-slate-800">
-                                        {BRANCHES.map(b => (
-                                            <button key={b} onClick={() => {
-                                                const has = form.branches.includes(b);
-                                                setForm({...form, branches: has ? form.branches.filter(x => x !== b) : [...form.branches, b]});
-                                            }} className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition ${form.branches.includes(b) ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`}>{b.toUpperCase()}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Katılım Durumu</label>
-                                    <div className="flex bg-slate-950/40 p-1 rounded-xl border border-slate-800">
-                                        {['geldi', 'gelmedi', 'bekliyor'].map(s => (
-                                            <button key={s} onClick={() => setForm({...form, attendance: s})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition ${form.attendance === s ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{s}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+        function openTransactionModal(type) {
+            const m = document.getElementById('transaction-modal');
+            document.getElementById('transaction-type').value = type;
+            document.getElementById('transaction-modal-title').innerText = type === 'payment' ? 'Tahsilat Girişi' : 'Gider Kaydı';
+            const div = document.getElementById('student-transaction-div');
+            if(type === 'payment') {
+                div.classList.remove('hidden');
+                document.getElementById('transaction-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            } else { div.classList.add('hidden'); }
+            m.classList.remove('hidden');
+        }
 
-                        <div className="mt-8 pt-6 border-t border-slate-800 flex gap-4">
-                            {lesson && <button onClick={() => { onDelete(lesson.id); onClose(); }} className="px-8 py-3.5 text-red-500 font-black text-[10px] border border-red-500/10 rounded-2xl hover:bg-red-500/10 uppercase tracking-widest">SİL</button>}
-                            <button onClick={() => { onSave(form); onClose(); }} className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/30 italic">KAYDET VE SENKRONİZE ET</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+        function saveTransaction(e) {
+            e.preventDefault();
+            appState.accounting.push({
+                id: Date.now(),
+                type: document.getElementById('transaction-type').value,
+                studentId: document.getElementById('transaction-type').value === 'payment' ? parseInt(document.getElementById('transaction-student').value) : null,
+                amount: parseFloat(document.getElementById('transaction-amount').value),
+                desc: document.getElementById('transaction-desc').value,
+                date: new Date().toLocaleString('tr-TR')
+            });
+            closeModal('transaction-modal');
+            renderAccounting();
+            saveToCloud();
+        }
 
-        const StudentsView = ({ students, onSaveStudent, onDeleteStudent }) => {
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [selectedStudent, setSelectedStudent] = useState(null);
+        // --- STATS (CHART.JS) ---
+        function initStats() {
+            if (appState.charts.mood) appState.charts.mood.destroy();
+            if (appState.charts.subjects) appState.charts.subjects.destroy();
+            if (appState.charts.performance) appState.charts.performance.destroy();
 
-            return (
-                <div className="p-4 md:p-8">
-                    <div className="flex justify-between items-center mb-8">
-                        <div>
-                            <h1 className="text-3xl font-black text-white italic tracking-tighter">Öğrenciler</h1>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Sistemde {students.length} Öğrenci Kayıtlı</p>
-                        </div>
-                        <button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-xl shadow-blue-600/20 transition uppercase italic">
-                            <i className="lucide-plus w-4 h-4"></i> Yeni Öğrenci
-                        </button>
-                    </div>
+            const studentId = parseInt(document.getElementById('stats-student-select').value);
+            const dataPool = studentId ? appState.lessons.filter(l => l.studentId === studentId) : appState.lessons;
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                        {students.map(student => (
-                            <div key={student.id} onClick={() => { setSelectedStudent(student); setIsModalOpen(true); }} className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl hover:border-blue-500/40 transition-all cursor-pointer group hover:bg-slate-900">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-blue-500 text-2xl font-black border border-slate-700 shadow-inner group-hover:scale-110 transition-transform overflow-hidden">
-                                        {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : student.name[0]}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-base font-black text-white tracking-tight truncate">{student.name}</div>
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{student.grade}. Sınıf</div>
-                                        <div className="text-[11px] font-black text-blue-400 mt-1.5 flex items-center gap-1.5">
-                                            <i className="lucide-wallet w-3 h-3"></i> {student.unitPrice} ₺ <span className="text-[8px] opacity-40">/ DERS</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {isModalOpen && (
-                        <StudentModal 
-                            student={selectedStudent} 
-                            onClose={() => setIsModalOpen(false)} 
-                            onSave={onSaveStudent} 
-                            onDelete={onDeleteStudent} 
-                        />
-                    )}
-                </div>
-            );
-        };
-
-        const StudentModal = ({ student, onClose, onSave, onDelete }) => {
-            const [form, setForm] = useState(student || {
-                id: Date.now().toString(),
-                name: '',
-                grade: 1,
-                unitPrice: '',
-                photo: '',
-                notes: ''
+            // Mood Chart
+            const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
+            appState.charts.mood = new Chart(document.getElementById('chart-mood'), {
+                type: 'doughnut',
+                data: { labels: ['Çok Kötü','Kötü','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
+                options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
             });
 
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
-                    <div className="bg-slate-900 w-full max-w-lg rounded-3xl p-8 border border-slate-800 shadow-2xl">
-                        <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-xl font-black text-white italic">{student ? 'Öğrenci Bilgilerini Güncelle' : 'Yeni Öğrenci Kaydı'}</h2>
-                            <button onClick={onClose} className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition"><i className="lucide-x w-5 h-5"></i></button>
-                        </div>
-                        
-                        <div className="space-y-6">
-                            <div className="flex flex-col items-center mb-4">
-                                <div className="w-24 h-24 bg-slate-800 rounded-3xl flex items-center justify-center border-2 border-slate-700 overflow-hidden mb-4 shadow-xl">
-                                    {form.photo ? <img src={form.photo} className="w-full h-full object-cover" /> : <i className="lucide-user w-8 h-8 opacity-20"></i>}
-                                </div>
-                                <input type="file" className="hidden" id="photo-up" accept="image/*" onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if(file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => setForm({...form, photo: ev.target.result});
-                                        reader.readAsDataURL(file);
-                                    }
-                                }} />
-                                <label htmlFor="photo-up" className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-black text-blue-500 uppercase cursor-pointer hover:bg-slate-700 transition tracking-widest">FOTOĞRAF SEÇ</label>
-                            </div>
+            // Subjects Chart
+            const branchCount = {}; appState.branches.forEach(b => branchCount[b] = 0);
+            dataPool.forEach(l => (l.selectedBranches || []).forEach(b => branchCount[b]++));
+            appState.charts.subjects = new Chart(document.getElementById('chart-subjects'), {
+                type: 'bar',
+                data: { labels: Object.keys(branchCount), datasets:[{ label:'Ders Sayısı', data: Object.values(branchCount), backgroundColor:'#3b82f6' }] },
+                options: { maintainAspectRatio:false, scales:{ y:{ticks:{color:'#94a3b8'}}, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
+            });
 
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1 tracking-widest">Öğrenci Tam Adı</label>
-                                <input type="text" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl font-bold text-sm text-white focus:border-blue-500 outline-none transition" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ad Soyad" />
-                            </div>
+            // Performance
+            const perfLabels = dataPool.slice(-10).map((l, i) => `Ders ${i+1}`);
+            const testData = dataPool.slice(-10).map(l => {
+                if(!l.tests || l.tests.length === 0) return 0;
+                let total = 0, correct = 0;
+                l.tests.forEach(t => { total += parseInt(t.q || 0); correct += parseInt(t.d || 0); });
+                return total > 0 ? (correct / total) * 100 : 0;
+            });
+            appState.charts.performance = new Chart(document.getElementById('chart-performance'), {
+                type: 'line',
+                data: { labels: perfLabels, datasets:[{ label:'Başarı Oranı (%)', data: testData, borderColor:'#10b981', tension:0.4 }] },
+                options: { maintainAspectRatio:false }
+            });
+        }
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1 tracking-widest">Sınıf Düzeyi</label>
-                                    <select className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl font-bold text-sm text-white" value={form.grade} onChange={e => setForm({...form, grade: e.target.value})}>
-                                        {GRADES.map(g => <option key={g} value={g}>{g}. Sınıf</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1.5 ml-1 tracking-widest">Ders Ücreti (₺)</label>
-                                    <input type="number" className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl font-bold text-sm text-white" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: e.target.value})} />
-                                </div>
-                            </div>
-                        </div>
+        // --- HELPERS ---
+        function getStudentName(id) { return appState.students.find(s => s.id === id)?.name || "Bilinmiyor"; }
+        function getStudentPrice(id) { return appState.students.find(s => s.id === id)?.price || 0; }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function filterStudents(q) { renderStudents(q); }
+        function updateStatsSelect() { document.getElementById('stats-student-select').innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function loadStudentStats() { initStats(); }
 
-                        <div className="mt-10 flex gap-3">
-                            {student && <button onClick={() => { onDelete(student.id); onClose(); }} className="px-8 py-4 text-red-500 font-black text-[10px] border border-red-500/10 rounded-2xl hover:bg-red-500/10 uppercase tracking-widest">SİL</button>}
-                            <button onClick={() => { onSave(form); onClose(); }} className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20 italic">BİLGİLERİ KAYDET</button>
-                        </div>
-                    </div>
-                </div>
-            );
+        // --- EXPORTS ---
+        async function exportFullCalendarPDF() {
+            const el = document.getElementById('calendar-grid');
+            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
+            const pdf = new jspdf.jsPDF('l', 'mm', 'a4');
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 277, 150);
+            pdf.save('Haftalik_Program.pdf');
+        }
+
+        function exportSingleLessonPDF() {
+            const id = document.getElementById('lesson-id').value;
+            const l = appState.lessons.find(x => x.id == id);
+            if(!l) return;
+            const pdf = new jspdf.jsPDF();
+            pdf.setFontSize(22); pdf.text('DERS RAPORU', 105, 20, {align:'center'});
+            pdf.setFontSize(10); pdf.text(`Öğrenci: ${getStudentName(l.studentId)}`, 20, 40);
+            pdf.text(`Tarih: ${new Date(l.id).toLocaleDateString('tr-TR')} - Saat: ${l.time}`, 20, 50);
+            pdf.text(`Branşlar: ${l.selectedBranches.join(', ')}`, 20, 60);
+            pdf.text('TEST SONUÇLARI:', 20, 80);
+            (l.tests || []).forEach((t, i) => pdf.text(`${t.branch}: ${t.q} Soru / ${t.d} Doğru`, 25, 90 + (i*7)));
+            pdf.text('EĞİTMEN NOTLARI:', 20, 150);
+            pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 160);
+            pdf.save(`${getStudentName(l.studentId)}_Ders_Notu.pdf`);
+        }
+
+        // --- START ---
+        window.onload = () => {
+            fetchData();
         };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
     </script>
 </body>
 </html>

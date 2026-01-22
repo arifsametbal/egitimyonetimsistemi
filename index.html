@@ -95,15 +95,20 @@
                     <option value="">Öğrenci Seçiniz</option>
                 </select>
                 <select id="stats-branch-select" class="w-full md:w-64" onchange="initStats()">
-                    <option value="ALL">Tüm Branşlar (Genel Başarı)</option>
+                    <option value="ALL">Tüm Branşlar (Öğrenci Ortalaması)</option>
                 </select>
                 <button onclick="exportStatsPDF()" class="bg-purple-600 text-white px-4 py-2 rounded-lg w-full md:w-auto">
                     <i class="fas fa-chart-pie mr-2"></i>Gelişim Raporu (PDF)
                 </button>
             </div>
             
-            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Genel Başarı Grafiği -->
+            <div id="stats-empty-state" class="text-center py-20 text-slate-500">
+                <i class="fas fa-chart-line text-5xl mb-4"></i>
+                <p>İstatistikleri görüntülemek için lütfen bir öğrenci seçin.</p>
+            </div>
+
+            <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
+                <!-- Başarı Grafiği -->
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Gelişimi (%)</h3>
                     <div class="h-[300px]"><canvas id="chart-test-performance"></canvas></div>
@@ -153,7 +158,7 @@
             <div class="flex flex-col md:flex-row justify-between mb-4 gap-4">
                 <div class="flex space-x-2">
                     <button onclick="openTransactionModal('payment')" class="bg-green-600 px-4 py-2 rounded text-sm font-bold"><i class="fas fa-plus-circle mr-2"></i>Ödeme Al</button>
-                    <button onclick="openTransactionModal('expense')" class="bg-red-600 px-4 py-2 rounded text-sm font-bold"><i class="fas fa-minus-circle mr-2"></i>Harcama</button>
+                    <button onclick="openTransactionModal('expense')" class="bg-red-600 px-4 py-2 rounded text-sm font-bold"><i class="fas fa-shopping-cart mr-2"></i>Harcama Gir</button>
                 </div>
                 <div class="flex gap-2">
                     <input type="text" placeholder="Tabloda ara..." class="text-sm px-3" onkeyup="renderAccounting(this.value)">
@@ -167,22 +172,14 @@
                         <tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400">
                             <th class="p-4">Öğrenci</th>
                             <th class="p-4">Ders Sayısı</th>
-                            <th class="p-4">Toplam Borç</th>
+                            <th class="p-4">Ders Borcu</th>
+                            <th class="p-4">Harcamalar</th>
                             <th class="p-4">Ödenen</th>
-                            <th class="p-4">Kalan</th>
-                            <th class="p-4">Aksiyon</th>
+                            <th class="p-4">Kalan Bakiye</th>
+                            <th class="p-4">Detay</th>
                         </tr>
                     </thead>
                     <tbody id="accounting-table-body"></tbody>
-                    <tfoot>
-                        <tr class="bg-slate-800/30 font-bold border-t border-slate-700">
-                            <td class="p-4" colspan="2">GENEL TOPLAM</td>
-                            <td class="p-4 text-blue-400" id="foot-debt">₺0</td>
-                            <td class="p-4 text-green-400" id="foot-paid">₺0</td>
-                            <td class="p-4 text-red-400" id="foot-balance">₺0</td>
-                            <td class="p-4"></td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </section>
@@ -196,7 +193,7 @@
         <button onclick="switchTab('accounting')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-accounting"><i class="fas fa-wallet text-lg"></i><span>Muhasebe</span></button>
     </div>
 
-    <!-- Ders Modalı -->
+    <!-- Modallar -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
             <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
@@ -253,8 +250,8 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <textarea id="lesson-notes" placeholder="Bu derste neler yapıldı? (Notlar)" class="w-full h-24 text-sm"></textarea>
-                    <textarea id="lesson-reminders" placeholder="Sonraki ders için hatırlatmalar..." class="w-full h-24 text-sm border-dashed border-yellow-500/30"></textarea>
+                    <textarea id="lesson-notes" placeholder="Ders Notları..." class="w-full h-24 text-sm"></textarea>
+                    <textarea id="lesson-reminders" placeholder="Hatırlatmalar..." class="w-full h-24 text-sm border-dashed border-yellow-500/30"></textarea>
                 </div>
                 <div class="flex justify-between items-center pt-6 border-t border-slate-700">
                     <div class="flex gap-4">
@@ -263,14 +260,38 @@
                     </div>
                     <div class="space-x-3">
                         <button type="button" onclick="closeModal('lesson-modal')" class="bg-slate-800 px-5 py-2 rounded-lg text-sm">Vazgeç</button>
-                        <button type="submit" class="bg-blue-600 px-8 py-2 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20">Kaydet</button>
+                        <button type="submit" class="bg-blue-600 px-8 py-2 rounded-lg font-bold text-sm">Kaydet</button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Diğer Modallar -->
+    <!-- İşlem Girişi Modalı (Harcama/Ödeme) -->
+    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
+            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">Finansal Veri Girişi</h2>
+            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
+                <input type="hidden" id="transaction-type">
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İlgili Öğrenci</label>
+                    <select id="transaction-student" class="w-full" required></select>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Tutarı (₺)</label>
+                    <input type="number" id="transaction-amount" class="w-full" required>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Açıklaması</label>
+                    <input type="text" id="transaction-desc" class="w-full" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4">Hareketi Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Öğrenci Modalı -->
     <div id="student-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-lg rounded-2xl p-6 relative">
             <button onclick="closeModal('student-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
@@ -306,29 +327,6 @@
         </div>
     </div>
 
-    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
-            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
-            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">Finansal Veri Girişi</h2>
-            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
-                <input type="hidden" id="transaction-type">
-                <div id="student-transaction-div">
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İlgili Öğrenci</label>
-                    <select id="transaction-student" class="w-full"></select>
-                </div>
-                <div>
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Tutarı (₺)</label>
-                    <input type="number" id="transaction-amount" class="w-full" required>
-                </div>
-                <div>
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Açıklaması</label>
-                    <input type="text" id="transaction-desc" class="w-full" required>
-                </div>
-                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4 shadow-lg shadow-blue-500/20">Hareketi Kaydet</button>
-            </form>
-        </div>
-    </div>
-
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbzgqFZut49ZI6TwqKPYIR9Vaa4HNpgA6InHarWwzqZ40wNucWpYst_jVjGHpcZPIeZ8/exec";
         
@@ -343,7 +341,7 @@
             charts: { mood: null, subjectsSuccess: null, performance: null, reading: null }
         };
 
-        // --- HELPERS ---
+        // --- CORE FUNCTIONS ---
         function getWeekId() {
             const today = new Date();
             const first = new Date(today);
@@ -364,10 +362,9 @@
                 }
                 document.getElementById('loader').classList.add('hidden');
                 
-                // Branş dropdownını doldur
                 const branchSelect = document.getElementById('stats-branch-select');
                 if(branchSelect) {
-                    branchSelect.innerHTML = '<option value="ALL">Tüm Branşlar (Genel Başarı)</option>';
+                    branchSelect.innerHTML = '<option value="ALL">Tüm Branşlar (Öğrenci Ortalaması)</option>';
                     appState.branches.forEach(b => {
                         branchSelect.innerHTML += `<option value="${b}">${b}</option>`;
                     });
@@ -411,6 +408,7 @@
             if(tabId === 'accounting') renderAccounting();
         }
 
+        // --- TAKVİM ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
             if(!grid) return;
@@ -426,8 +424,8 @@
                         <span class="font-bold text-xs text-blue-400 uppercase tracking-tighter">${day}</span>
                     </div>
                     <div id="day-lessons-${index}" class="flex-1 space-y-2"></div>
-                    <button onclick="openLessonModal(${index})" class="mt-4 w-full py-2 border border-dashed border-slate-600 rounded-lg text-[9px] hover:bg-slate-800 text-slate-500 font-bold">
-                        <i class="fas fa-plus-circle mr-1"></i>YENİ DERS
+                    <button onclick="openLessonModal(${index})" class="mt-4 w-full py-2 border border-dashed border-slate-600 rounded-lg text-[9px] hover:bg-slate-800 text-slate-500 font-bold uppercase">
+                        Yeni Ders
                     </button>
                 `;
                 grid.appendChild(dayEl);
@@ -458,7 +456,7 @@
                 const container = document.getElementById(`day-lessons-${l.day}`);
                 if(container) {
                     const node = document.createElement('div');
-                    node.className = `lesson-node p-2 rounded-lg text-[10px] ${l.attendance ? 'attendance-true' : 'attendance-false shadow-lg shadow-red-500/5'}`;
+                    node.className = `lesson-node p-2 rounded-lg text-[10px] ${l.attendance ? 'attendance-true' : 'attendance-false'}`;
                     node.onclick = () => openLessonModal(l.day, l.id);
                     node.innerHTML = `
                         <div class="font-bold truncate flex justify-between">
@@ -472,6 +470,7 @@
             });
         }
 
+        // --- DERS İŞLEMLERİ ---
         function openLessonModal(day, id = null) {
             const modal = document.getElementById('lesson-modal');
             const form = document.getElementById('lesson-form');
@@ -505,16 +504,6 @@
             modal.classList.remove('hidden');
         }
 
-        function deleteCurrentLesson() {
-            const id = document.getElementById('lesson-id').value;
-            if(!id) return;
-            if(!confirm("Bu ders kaydını silmek istediğinize emin misiniz?")) return;
-            appState.lessons = appState.lessons.filter(l => l.id != id);
-            closeModal('lesson-modal');
-            renderAllLessons();
-            saveToCloud();
-        }
-
         function toggleBranchChip(el) { el.classList.toggle('active'); }
 
         function addTestRow(data = null) {
@@ -525,59 +514,249 @@
                 <select class="text-[10px] col-span-2 py-1">
                     ${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
                 </select>
-                <input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}" title="Soru">
-                <input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}" title="Doğru">
-                <input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}" title="Yanlış">
-                <input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}" title="Boş">
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>
+                <input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}">
+                <input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}">
+                <input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}">
+                <input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500"><i class="fas fa-trash-alt"></i></button>
             `;
             container.appendChild(row);
         }
 
         function saveLesson(e) {
             e.preventDefault();
-            try {
-                const id = document.getElementById('lesson-id').value;
-                const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
-                const tests = [];
-                const testRows = Array.from(document.getElementById('test-rows-container').children);
-                testRows.forEach(row => {
-                    const inputs = row.querySelectorAll('input');
-                    tests.push({
-                        branch: row.querySelector('select').value,
-                        q: inputs[0].value,
-                        d: inputs[1].value,
-                        w: inputs[2].value,
-                        e: inputs[3].value
-                    });
+            const id = document.getElementById('lesson-id').value;
+            const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
+            const tests = [];
+            Array.from(document.getElementById('test-rows-container').children).forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                tests.push({
+                    branch: row.querySelector('select').value,
+                    q: parseInt(inputs[0].value || 0),
+                    d: parseInt(inputs[1].value || 0),
+                    w: parseInt(inputs[2].value || 0),
+                    e: parseInt(inputs[3].value || 0)
                 });
-                const studentId = parseInt(document.getElementById('lesson-student').value);
-                const lesson = {
-                    id: id ? parseInt(id) : Date.now(),
-                    weekId: getWeekId(),
-                    studentId: studentId,
-                    day: parseInt(document.getElementById('lesson-day').value),
-                    time: document.getElementById('lesson-time').value,
-                    attendance: document.getElementById('lesson-attendance').checked,
-                    selectedBranches: branches,
-                    tests: tests,
-                    words: document.getElementById('l-words').value,
-                    comprehension: document.getElementById('l-comp').value,
-                    mood: document.querySelector('input[name="mood"]:checked')?.value || null,
-                    notes: document.getElementById('lesson-notes').value,
-                    reminders: document.getElementById('lesson-reminders').value,
-                    unitPrice: getStudentPrice(studentId)
-                };
-                if(id) {
-                    const idx = appState.lessons.findIndex(x => x.id == id);
-                    if (idx !== -1) appState.lessons[idx] = lesson;
-                } else { appState.lessons.push(lesson); }
-                closeModal('lesson-modal');
-                renderAllLessons();
-                saveToCloud();
-            } catch (err) { console.error("Hata:", err); }
+            });
+            const studentId = parseInt(document.getElementById('lesson-student').value);
+            const lesson = {
+                id: id ? parseInt(id) : Date.now(),
+                weekId: getWeekId(),
+                studentId: studentId,
+                day: parseInt(document.getElementById('lesson-day').value),
+                time: document.getElementById('lesson-time').value,
+                attendance: document.getElementById('lesson-attendance').checked,
+                selectedBranches: branches,
+                tests: tests,
+                words: document.getElementById('l-words').value,
+                comprehension: document.getElementById('l-comp').value,
+                mood: document.querySelector('input[name="mood"]:checked')?.value || null,
+                notes: document.getElementById('lesson-notes').value,
+                reminders: document.getElementById('lesson-reminders').value,
+                unitPrice: getStudentPrice(studentId)
+            };
+            if(id) {
+                const idx = appState.lessons.findIndex(x => x.id == id);
+                if (idx !== -1) appState.lessons[idx] = lesson;
+            } else { appState.lessons.push(lesson); }
+            closeModal('lesson-modal');
+            renderAllLessons();
+            saveToCloud();
         }
 
+        function deleteCurrentLesson() {
+            const id = document.getElementById('lesson-id').value;
+            if(!id || !confirm("Bu dersi silmek istediğinize emin misiniz?")) return;
+            appState.lessons = appState.lessons.filter(l => l.id != id);
+            closeModal('lesson-modal');
+            renderAllLessons();
+            saveToCloud();
+        }
+
+        // --- İSTATİSTİK ---
+        function loadStudentStats(id) {
+            const container = document.getElementById('stats-container');
+            const emptyState = document.getElementById('stats-empty-state');
+            if(!id) {
+                container.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            initStats();
+        }
+
+        function initStats() {
+            if (appState.charts.mood) appState.charts.mood.destroy();
+            if (appState.charts.subjectsSuccess) appState.charts.subjectsSuccess.destroy();
+            if (appState.charts.performance) appState.charts.performance.destroy();
+            if (appState.charts.reading) appState.charts.reading.destroy();
+
+            const studentId = parseInt(document.getElementById('stats-student-select').value);
+            if(!studentId) return;
+
+            const selectedBranch = document.getElementById('stats-branch-select').value;
+            const dataPool = appState.lessons.filter(l => l.studentId === studentId);
+
+            // 1. Duygu Durumu
+            const moodCtx = document.getElementById('chart-mood');
+            if (moodCtx) {
+                const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
+                appState.charts.mood = new Chart(moodCtx, {
+                    type: 'doughnut',
+                    data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
+                    options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
+                });
+            }
+
+            // 2. Branş Bazlı Ortalama Başarı
+            const successCtx = document.getElementById('chart-subjects-success');
+            if (successCtx) {
+                const branchStats = {}; 
+                appState.branches.forEach(b => branchStats[b] = { total: 0, correct: 0 });
+                dataPool.forEach(l => {
+                    (l.tests || []).forEach(t => {
+                        if (branchStats[t.branch]) {
+                            branchStats[t.branch].total += t.q || 0;
+                            branchStats[t.branch].correct += t.d || 0;
+                        }
+                    });
+                });
+                const labels = appState.branches;
+                const data = labels.map(b => branchStats[b].total > 0 ? ((branchStats[b].correct / branchStats[b].total) * 100).toFixed(1) : 0);
+                appState.charts.subjectsSuccess = new Chart(successCtx, {
+                    type: 'bar',
+                    data: { labels, datasets:[{ label:'Öğrenci Başarı %', data, backgroundColor:'#3b82f6' }] },
+                    options: { maintainAspectRatio:false, scales:{ y:{ min:0, max:100, ticks:{color:'#94a3b8'} }, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
+                });
+            }
+
+            // 3. Test Bazlı Gelişim Grafiği
+            const perfCtx = document.getElementById('chart-test-performance');
+            if (perfCtx) {
+                const testHistory = [];
+                dataPool.forEach(l => {
+                    (l.tests || []).forEach(t => {
+                        const successRate = t.q > 0 ? (t.d / t.q) * 100 : 0;
+                        testHistory.push({ branch: t.branch, rate: successRate, date: l.id });
+                    });
+                });
+
+                let filteredHistory = [];
+                let title = "Test Başarı Gelişimi (%)";
+
+                if (selectedBranch === "ALL") {
+                    const grouped = {};
+                    testHistory.forEach(th => {
+                        if(!grouped[th.date]) grouped[th.date] = { sum: 0, count: 0 };
+                        grouped[th.date].sum += th.rate;
+                        grouped[th.date].count++;
+                    });
+                    filteredHistory = Object.keys(grouped).sort().map(key => grouped[key].sum / grouped[key].count);
+                    title = "Genel Başarı Ortalaması (%)";
+                } else {
+                    filteredHistory = testHistory.filter(th => th.branch === selectedBranch).map(th => th.rate);
+                    title = `${selectedBranch} Başarı Grafiği (%)`;
+                }
+                document.getElementById('chart-main-title').innerText = title;
+
+                const labels = filteredHistory.map((_, i) => `${i+1}. Test`);
+                appState.charts.performance = new Chart(perfCtx, {
+                    type: 'line',
+                    data: { labels, datasets:[{ label: 'Başarı %', data: filteredHistory, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }] },
+                    options: { maintainAspectRatio:false, scales: { y: { min: 0, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }
+                });
+            }
+
+            // 4. Okuma & Anlama
+            const readCtx = document.getElementById('chart-reading');
+            if (readCtx) {
+                const pool = dataPool.filter(l => l.words || l.comprehension).slice(-15);
+                const labels = pool.map((_, i) => `Ders ${i+1}`);
+                appState.charts.reading = new Chart(readCtx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Dakikada Kelime', data: pool.map(l => l.words || 0), borderColor: '#a855f7', tension: 0.3, yAxisID: 'y' },
+                            { label: 'Anlama %', data: pool.map(l => l.comprehension || 0), borderColor: '#22c55e', tension: 0.3, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: { 
+                        maintainAspectRatio:false,
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#94a3b8' } },
+                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#22c55e' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- MUHASEBE ---
+        function renderAccounting(q = "") {
+            const body = document.getElementById('accounting-table-body');
+            if (!body) return;
+            body.innerHTML = '';
+            let tD = 0, tP = 0, tE = 0;
+            
+            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+                const lessons = appState.lessons.filter(l => l.studentId === s.id && l.attendance);
+                const lessonDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
+                const extraExpenses = appState.accounting.filter(a => a.studentId === s.id && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
+                const paid = appState.accounting.filter(a => a.studentId === s.id && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
+                
+                const totalDebt = lessonDebt + extraExpenses;
+                const balance = totalDebt - paid;
+                
+                tD += lessonDebt; tP += paid; tE += extraExpenses;
+
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
+                row.innerHTML = `
+                    <td class="p-4 font-bold">${s.name}</td>
+                    <td class="p-4">${lessons.length}</td>
+                    <td class="p-4 text-blue-400">₺${lessonDebt}</td>
+                    <td class="p-4 text-orange-400">₺${extraExpenses}</td>
+                    <td class="p-4 text-green-500 font-bold">₺${paid}</td>
+                    <td class="p-4 font-bold ${balance > 0 ? 'text-red-500' : 'text-blue-500'}">₺${balance}</td>
+                    <td class="p-4"><button onclick="alert('Detaylar yakında eklenecek.')" class="text-slate-500"><i class="fas fa-history"></i></button></td>
+                `;
+                body.appendChild(row);
+            });
+
+            document.getElementById('acc-total-debt').innerText = `₺${tD}`;
+            document.getElementById('acc-total-paid').innerText = `₺${tP}`;
+            document.getElementById('acc-total-expense').innerText = `₺${tE}`;
+            document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
+        }
+
+        function openTransactionModal(type) {
+            const m = document.getElementById('transaction-modal');
+            document.getElementById('transaction-type').value = type;
+            document.getElementById('transaction-modal-title').innerText = type === 'payment' ? 'Ödeme Tahsilatı' : 'Harcama Girişi (Borç Ekle)';
+            const studentSelect = document.getElementById('transaction-student');
+            studentSelect.innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            m.classList.remove('hidden');
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            appState.accounting.push({
+                id: Date.now(),
+                type: document.getElementById('transaction-type').value,
+                studentId: parseInt(document.getElementById('transaction-student').value),
+                amount: parseFloat(document.getElementById('transaction-amount').value),
+                desc: document.getElementById('transaction-desc').value,
+                date: new Date().toLocaleString('tr-TR')
+            });
+            closeModal('transaction-modal');
+            renderAccounting();
+            saveToCloud();
+        }
+
+        // --- ÖĞRENCİ YÖNETİMİ ---
         function renderStudents(filter = "") {
             const list = document.getElementById('student-list');
             const empty = document.getElementById('empty-student-msg');
@@ -591,10 +770,10 @@
                 card.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase">${s.grade}. SINIF</span>
+                            <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase font-bold">${s.grade}. Sınıf</span>
                             <div class="space-x-1">
-                                <button onclick="openStudentModal(${s.id})" class="text-xs text-slate-500 hover:text-white"><i class="fas fa-edit"></i></button>
-                                <button onclick="deleteStudent(${s.id})" class="text-xs text-red-900 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                <button onclick="openStudentModal(${s.id})" class="text-xs text-slate-500 hover:text-white p-1"><i class="fas fa-edit"></i></button>
+                                <button onclick="deleteStudent(${s.id})" class="text-xs text-red-900 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
                         <h3 class="font-bold text-base truncate">${s.name}</h3>
@@ -602,7 +781,7 @@
                     </div>
                     <div class="mt-4 flex justify-between items-center pt-3 border-t border-slate-800">
                         <span class="font-bold text-green-500 text-sm">₺${s.price} <span class="text-[9px] opacity-40">/ saat</span></span>
-                        <button onclick="exportStudentProfile(${s.id})" class="text-[9px] bg-slate-800 px-2 py-1 rounded uppercase tracking-tighter">Profil Aktar</button>
+                        <button onclick="exportStudentProfile(${s.id})" class="text-[9px] bg-slate-800 px-2 py-1 rounded uppercase font-bold">Profil Aktar</button>
                     </div>
                 `;
                 list.appendChild(card);
@@ -652,7 +831,7 @@
         }
 
         function deleteStudent(id) {
-            if(!confirm("Kalıcı olarak silmek istiyor musunuz?")) return;
+            if(!confirm("Bu öğrenciyi silmek tüm verilerinin silinmesine yol açar. Onaylıyor musunuz?")) return;
             appState.students = appState.students.filter(s => s.id !== id);
             appState.lessons = appState.lessons.filter(l => l.studentId !== id);
             appState.accounting = appState.accounting.filter(a => a.studentId !== id);
@@ -661,187 +840,7 @@
             saveToCloud();
         }
 
-        function renderAccounting(q = "") {
-            const body = document.getElementById('accounting-table-body');
-            if (!body) return;
-            body.innerHTML = '';
-            let tD = 0, tP = 0, tE = 0;
-            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
-                const lessons = appState.lessons.filter(l => l.studentId === s.id && l.attendance);
-                const debt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
-                const paid = appState.accounting.filter(a => a.studentId === s.id && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
-                tD += debt; tP += paid;
-                const row = document.createElement('tr');
-                row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
-                row.innerHTML = `
-                    <td class="p-4 font-medium">${s.name}</td>
-                    <td class="p-4">${lessons.length}</td>
-                    <td class="p-4">₺${debt}</td>
-                    <td class="p-4 text-green-500 font-bold">₺${paid}</td>
-                    <td class="p-4 font-bold ${debt-paid > 0 ? 'text-red-500' : 'text-blue-500'}">₺${debt-paid}</td>
-                    <td class="p-4"><button class="text-slate-500"><i class="fas fa-history"></i></button></td>
-                `;
-                body.appendChild(row);
-            });
-            tE = appState.accounting.filter(a => a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
-            document.getElementById('acc-total-debt').innerText = `₺${tD}`;
-            document.getElementById('acc-total-paid').innerText = `₺${tP}`;
-            document.getElementById('acc-total-expense').innerText = `₺${tE}`;
-            document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
-            document.getElementById('foot-debt').innerText = `₺${tD}`;
-            document.getElementById('foot-paid').innerText = `₺${tP}`;
-            document.getElementById('foot-balance').innerText = `₺${tD - tP}`;
-        }
-
-        function openTransactionModal(type) {
-            const m = document.getElementById('transaction-modal');
-            document.getElementById('transaction-type').value = type;
-            document.getElementById('transaction-modal-title').innerText = type === 'payment' ? 'Tahsilat Girişi' : 'Gider Kaydı';
-            const div = document.getElementById('student-transaction-div');
-            if(type === 'payment') {
-                div.classList.remove('hidden');
-                document.getElementById('transaction-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            } else { div.classList.add('hidden'); }
-            m.classList.remove('hidden');
-        }
-
-        function saveTransaction(e) {
-            e.preventDefault();
-            appState.accounting.push({
-                id: Date.now(),
-                type: document.getElementById('transaction-type').value,
-                studentId: document.getElementById('transaction-type').value === 'payment' ? parseInt(document.getElementById('transaction-student').value) : null,
-                amount: parseFloat(document.getElementById('transaction-amount').value),
-                desc: document.getElementById('transaction-desc').value,
-                date: new Date().toLocaleString('tr-TR')
-            });
-            closeModal('transaction-modal');
-            renderAccounting();
-            saveToCloud();
-        }
-
-        // --- Geliştirilmiş İstatistik Mantığı ---
-        function initStats() {
-            if (appState.charts.mood) appState.charts.mood.destroy();
-            if (appState.charts.subjectsSuccess) appState.charts.subjectsSuccess.destroy();
-            if (appState.charts.performance) appState.charts.performance.destroy();
-            if (appState.charts.reading) appState.charts.reading.destroy();
-
-            const studentId = parseInt(document.getElementById('stats-student-select').value);
-            const selectedBranch = document.getElementById('stats-branch-select').value;
-            const dataPool = studentId ? appState.lessons.filter(l => l.studentId === studentId) : appState.lessons;
-
-            // 1. Duygu Durumu (Genel)
-            const moodCtx = document.getElementById('chart-mood');
-            if (moodCtx) {
-                const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
-                appState.charts.mood = new Chart(moodCtx, {
-                    type: 'doughnut',
-                    data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
-                    options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
-                });
-            }
-
-            // 2. Branş Bazlı Ortalama Başarı (Bar Chart)
-            const successCtx = document.getElementById('chart-subjects-success');
-            if (successCtx) {
-                const branchStats = {}; 
-                appState.branches.forEach(b => branchStats[b] = { total: 0, correct: 0 });
-                dataPool.forEach(l => {
-                    (l.tests || []).forEach(t => {
-                        if (branchStats[t.branch]) {
-                            branchStats[t.branch].total += parseInt(t.q || 0);
-                            branchStats[t.branch].correct += parseInt(t.d || 0);
-                        }
-                    });
-                });
-                const labels = appState.branches;
-                const data = labels.map(b => branchStats[b].total > 0 ? ((branchStats[b].correct / branchStats[b].total) * 100).toFixed(1) : 0);
-                appState.charts.subjectsSuccess = new Chart(successCtx, {
-                    type: 'bar',
-                    data: { labels, datasets:[{ label:'Genel Başarı %', data, backgroundColor:'#3b82f6' }] },
-                    options: { maintainAspectRatio:false, scales:{ y:{ min:0, max:100, ticks:{color:'#94a3b8'} }, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
-                });
-            }
-
-            // 3. Test Bazlı Gelişim Grafiği (LİNE - % Başarı)
-            const perfCtx = document.getElementById('chart-test-performance');
-            if (perfCtx) {
-                const testHistory = [];
-                dataPool.forEach(l => {
-                    (l.tests || []).forEach(t => {
-                        const successRate = t.q > 0 ? (t.d / t.q) * 100 : 0;
-                        testHistory.push({ branch: t.branch, rate: successRate, date: l.id });
-                    });
-                });
-
-                let filteredHistory = [];
-                let title = "Test Başarı Gelişimi (%)";
-
-                if (selectedBranch === "ALL") {
-                    // Genel Başarı: Aynı ders/tarihteki testlerin ortalamasını al
-                    const grouped = {};
-                    testHistory.forEach(th => {
-                        if(!grouped[th.date]) grouped[th.date] = { sum: 0, count: 0 };
-                        grouped[th.date].sum += th.rate;
-                        grouped[th.date].count++;
-                    });
-                    filteredHistory = Object.keys(grouped).sort().map(key => grouped[key].sum / grouped[key].count);
-                    title = "Genel Başarı Ortalaması (%)";
-                } else {
-                    // Seçili Branşın testi
-                    filteredHistory = testHistory.filter(th => th.branch === selectedBranch).map(th => th.rate);
-                    title = `${selectedBranch} Başarı Grafiği (%)`;
-                }
-
-                document.getElementById('chart-main-title').innerText = title;
-
-                const labels = filteredHistory.map((_, i) => `${i+1}. Test`);
-                appState.charts.performance = new Chart(perfCtx, {
-                    type: 'line',
-                    data: { 
-                        labels, 
-                        datasets:[{ 
-                            label: selectedBranch === "ALL" ? 'Ortalama %' : selectedBranch + ' %', 
-                            data: filteredHistory, 
-                            borderColor: '#3b82f6', 
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-                            fill: true, 
-                            tension: 0.4 
-                        }] 
-                    },
-                    options: { 
-                        maintainAspectRatio:false, 
-                        scales: { y: { min: 0, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } 
-                    }
-                });
-            }
-
-            // 4. Okuma & Anlama (Sadece Öğrenci Seçiliyse Anlamlı)
-            const readCtx = document.getElementById('chart-reading');
-            if (readCtx) {
-                const pool = dataPool.filter(l => l.words || l.comprehension).slice(-15);
-                const labels = pool.map((_, i) => `Ders ${i+1}`);
-                appState.charts.reading = new Chart(readCtx, {
-                    type: 'line',
-                    data: {
-                        labels,
-                        datasets: [
-                            { label: 'Kelime/Dak.', data: pool.map(l => l.words || 0), borderColor: '#a855f7', tension: 0.3, yAxisID: 'y' },
-                            { label: 'Anlama %', data: pool.map(l => l.comprehension || 0), borderColor: '#22c55e', tension: 0.3, yAxisID: 'y1' }
-                        ]
-                    },
-                    options: { 
-                        maintainAspectRatio:false,
-                        scales: {
-                            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#94a3b8' } },
-                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#22c55e' } }
-                        }
-                    }
-                });
-            }
-        }
-
+        // --- HELPERS ---
         function getStudentName(id) { return appState.students.find(s => s.id === id)?.name || "Bilinmiyor"; }
         function getStudentPrice(id) { return appState.students.find(s => s.id === id)?.price || 0; }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
@@ -850,8 +849,8 @@
             const select = document.getElementById('stats-student-select');
             if (select) select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); 
         }
-        function loadStudentStats() { initStats(); }
 
+        // --- PDF EXPORTS ---
         async function exportFullCalendarPDF() {
             const el = document.getElementById('calendar-grid');
             const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
@@ -867,14 +866,12 @@
             const pdf = new jspdf.jsPDF();
             pdf.setFontSize(22); pdf.text('DERS RAPORU', 105, 20, {align:'center'});
             pdf.setFontSize(10); pdf.text(`Öğrenci: ${getStudentName(l.studentId)}`, 20, 40);
-            pdf.text(`Tarih: ${new Date(l.id).toLocaleDateString('tr-TR')} - Saat: ${l.time}`, 20, 50);
             pdf.text(`Branşlar: ${l.selectedBranches.join(', ')}`, 20, 60);
             pdf.text('TEST SONUÇLARI:', 20, 80);
             (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D - ${t.w}Y - ${t.e}B`, 25, 90 + (i*7)); });
-            pdf.text(`HIZLI OKUMA: ${l.words || 0} Kelime / %${l.comprehension || 0} Anlama`, 20, 140);
-            pdf.text('EĞİTMEN NOTLARI:', 20, 160);
+            pdf.text('NOTLAR:', 20, 160);
             pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 170);
-            pdf.save(`${getStudentName(l.studentId)}_Ders_Notu.pdf`);
+            pdf.save(`${getStudentName(l.studentId)}_Ders.pdf`);
         }
 
         async function exportStatsPDF() {

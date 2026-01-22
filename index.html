@@ -67,10 +67,7 @@
                     </button>
                 </div>
             </div>
-
-            <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-7 gap-4">
-                <!-- Günler JS ile oluşturulacak -->
-            </div>
+            <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-7 gap-4"></div>
         </section>
 
         <!-- ÖĞRENCİLER BÖLÜMÜ -->
@@ -93,9 +90,12 @@
 
         <!-- İSTATİSTİK BÖLÜMÜ -->
         <section id="section-stats" class="tab-content hidden">
-            <div class="mb-6 flex flex-col md:flex-row gap-4 items-center">
+            <div class="mb-6 flex flex-wrap gap-4 items-center">
                 <select id="stats-student-select" class="w-full md:w-64" onchange="loadStudentStats(this.value)">
                     <option value="">Öğrenci Seçiniz</option>
+                </select>
+                <select id="stats-branch-select" class="w-full md:w-64" onchange="initStats()">
+                    <option value="ALL">Tüm Branşlar (Genel Başarı)</option>
                 </select>
                 <button onclick="exportStatsPDF()" class="bg-purple-600 text-white px-4 py-2 rounded-lg w-full md:w-auto">
                     <i class="fas fa-chart-pie mr-2"></i>Gelişim Raporu (PDF)
@@ -103,21 +103,28 @@
             </div>
             
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Genel Başarı Grafiği -->
+                <div class="glass-card p-4 rounded-xl md:col-span-2">
+                    <h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Gelişimi (%)</h3>
+                    <div class="h-[300px]"><canvas id="chart-test-performance"></canvas></div>
+                </div>
+
+                <!-- Duygu Durumu -->
                 <div class="glass-card p-4 rounded-xl">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
                     <div class="h-[250px]"><canvas id="chart-mood"></canvas></div>
                 </div>
+
+                <!-- Branş Başarı Dağılımı -->
                 <div class="glass-card p-4 rounded-xl">
-                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Branş Başarı Oranları (%)</h3>
+                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Branş Bazlı Ortalama Başarı (%)</h3>
                     <div class="h-[250px]"><canvas id="chart-subjects-success"></canvas></div>
                 </div>
+
+                <!-- Okuma Hızı -->
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Okuma Hızı & Anlama Oranı Gelişimi</h3>
                     <div class="h-[300px]"><canvas id="chart-reading"></canvas></div>
-                </div>
-                <div class="glass-card p-4 rounded-xl md:col-span-2">
-                    <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Performans Analizi (Doğru Sayıları)</h3>
-                    <div class="h-[300px]"><canvas id="chart-performance"></canvas></div>
                 </div>
             </div>
         </section>
@@ -189,17 +196,14 @@
         <button onclick="switchTab('accounting')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-accounting"><i class="fas fa-wallet text-lg"></i><span>Muhasebe</span></button>
     </div>
 
-    <!-- MODALLAR -->
-    <!-- Ders Giriş Modalı -->
+    <!-- Ders Modalı -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
             <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
             <h2 class="text-xl font-bold mb-6 border-b border-slate-700 pb-2">Ders Ayrıntıları</h2>
-            
             <form id="lesson-form" class="space-y-6" onsubmit="saveLesson(event)">
                 <input type="hidden" id="lesson-id">
                 <input type="hidden" id="lesson-day">
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] mb-1 text-slate-500 uppercase">Öğrenci</label>
@@ -216,12 +220,10 @@
                         </div>
                     </div>
                 </div>
-
                 <div>
                     <label class="block text-[10px] mb-2 text-slate-500 uppercase">Branş Seçimi</label>
                     <div id="branch-container" class="flex flex-wrap gap-2"></div>
                 </div>
-
                 <div class="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
                     <div class="flex justify-between items-center mb-4">
                         <label class="text-[10px] text-slate-500 uppercase font-bold">Akademik Test Girişleri</label>
@@ -231,7 +233,6 @@
                     </div>
                     <div id="test-rows-container" class="space-y-2"></div>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] mb-1 text-slate-500 uppercase">Hızlı Okuma Performansı</label>
@@ -251,12 +252,10 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <textarea id="lesson-notes" placeholder="Bu derste neler yapıldı? (Notlar)" class="w-full h-24 text-sm"></textarea>
                     <textarea id="lesson-reminders" placeholder="Sonraki ders için hatırlatmalar..." class="w-full h-24 text-sm border-dashed border-yellow-500/30"></textarea>
                 </div>
-
                 <div class="flex justify-between items-center pt-6 border-t border-slate-700">
                     <div class="flex gap-4">
                         <button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-sm hover:underline"><i class="fas fa-file-download mr-1"></i>PDF</button>
@@ -352,10 +351,9 @@
             const diff = today.getDate() - dayNum + (dayNum === 0 ? -6 : 1) + (appState.currentWeekOffset * 7);
             first.setDate(diff);
             first.setHours(0,0,0,0);
-            return first.toISOString().split('T')[0]; // Haftanın Pazartesi günü ID'dir
+            return first.toISOString().split('T')[0];
         }
 
-        // --- CORE FETCH ---
         async function fetchData() {
             if(!API_URL) return;
             try {
@@ -365,6 +363,16 @@
                     appState = {...appState, ...data};
                 }
                 document.getElementById('loader').classList.add('hidden');
+                
+                // Branş dropdownını doldur
+                const branchSelect = document.getElementById('stats-branch-select');
+                if(branchSelect) {
+                    branchSelect.innerHTML = '<option value="ALL">Tüm Branşlar (Genel Başarı)</option>';
+                    appState.branches.forEach(b => {
+                        branchSelect.innerHTML += `<option value="${b}">${b}</option>`;
+                    });
+                }
+
                 initCalendar();
             } catch(e) {
                 console.error("Fetch hatası:", e);
@@ -389,7 +397,6 @@
             }
         }
 
-        // --- TAB MANAGEMENT ---
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`section-${tabId}`).classList.remove('hidden');
@@ -404,7 +411,6 @@
             if(tabId === 'accounting') renderAccounting();
         }
 
-        // --- CALENDAR ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
             if(!grid) return;
@@ -448,9 +454,7 @@
             const currentWeekId = getWeekId();
             document.querySelectorAll('[id^="day-lessons-"]').forEach(el => el.innerHTML = '');
             appState.lessons.forEach(l => {
-                // Sadece mevcut haftadaki dersleri göster
                 if (l.weekId !== currentWeekId) return;
-
                 const container = document.getElementById(`day-lessons-${l.day}`);
                 if(container) {
                     const node = document.createElement('div');
@@ -468,20 +472,16 @@
             });
         }
 
-        // --- LESSON ---
         function openLessonModal(day, id = null) {
             const modal = document.getElementById('lesson-modal');
             const form = document.getElementById('lesson-form');
             form.reset();
-            
             document.getElementById('lesson-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
             const bc = document.getElementById('branch-container');
             bc.innerHTML = appState.branches.map(b => `<div class="branch-chip" onclick="toggleBranchChip(this)">${b}</div>`).join('');
-            
             document.getElementById('test-rows-container').innerHTML = '';
             document.getElementById('lesson-day').value = day;
             document.getElementById('lesson-id').value = id || "";
-
             const deleteBtn = document.getElementById('btn-lesson-delete');
             if(id) {
                 deleteBtn.classList.remove('hidden');
@@ -494,20 +494,14 @@
                     document.getElementById('l-comp').value = l.comprehension || "";
                     document.getElementById('lesson-notes').value = l.notes || "";
                     document.getElementById('lesson-reminders').value = l.reminders || "";
-                    
-                    if(l.mood) { 
-                        const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); 
-                        if(r) r.checked = true; 
-                    }
+                    if(l.mood) { const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); if(r) r.checked = true; }
                     (l.selectedBranches || []).forEach(bName => {
                         const chip = [...bc.children].find(c => c.innerText === bName);
                         if(chip) chip.classList.add('active');
                     });
                     (l.tests || []).forEach(t => addTestRow(t));
                 }
-            } else {
-                deleteBtn.classList.add('hidden');
-            }
+            } else { deleteBtn.classList.add('hidden'); }
             modal.classList.remove('hidden');
         }
 
@@ -515,7 +509,6 @@
             const id = document.getElementById('lesson-id').value;
             if(!id) return;
             if(!confirm("Bu ders kaydını silmek istediğinize emin misiniz?")) return;
-            
             appState.lessons = appState.lessons.filter(l => l.id != id);
             closeModal('lesson-modal');
             renderAllLessons();
@@ -543,11 +536,9 @@
 
         function saveLesson(e) {
             e.preventDefault();
-            
             try {
                 const id = document.getElementById('lesson-id').value;
                 const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
-                
                 const tests = [];
                 const testRows = Array.from(document.getElementById('test-rows-container').children);
                 testRows.forEach(row => {
@@ -560,11 +551,10 @@
                         e: inputs[3].value
                     });
                 });
-
                 const studentId = parseInt(document.getElementById('lesson-student').value);
                 const lesson = {
                     id: id ? parseInt(id) : Date.now(),
-                    weekId: getWeekId(), // Hafta bazlı takip için kritik alan
+                    weekId: getWeekId(),
                     studentId: studentId,
                     day: parseInt(document.getElementById('lesson-day').value),
                     time: document.getElementById('lesson-time').value,
@@ -578,23 +568,16 @@
                     reminders: document.getElementById('lesson-reminders').value,
                     unitPrice: getStudentPrice(studentId)
                 };
-
                 if(id) {
                     const idx = appState.lessons.findIndex(x => x.id == id);
                     if (idx !== -1) appState.lessons[idx] = lesson;
-                } else {
-                    appState.lessons.push(lesson);
-                }
-                
+                } else { appState.lessons.push(lesson); }
                 closeModal('lesson-modal');
                 renderAllLessons();
                 saveToCloud();
-            } catch (err) {
-                console.error("Ders kaydedilirken hata:", err);
-            }
+            } catch (err) { console.error("Hata:", err); }
         }
 
-        // --- STUDENTS ---
         function renderStudents(filter = "") {
             const list = document.getElementById('student-list');
             const empty = document.getElementById('empty-student-msg');
@@ -602,7 +585,6 @@
             list.innerHTML = '';
             const data = appState.students.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()));
             if(data.length === 0) { empty?.classList.remove('hidden'); } else { empty?.classList.add('hidden'); }
-
             data.forEach(s => {
                 const card = document.createElement('div');
                 card.className = 'glass-card p-4 rounded-xl flex flex-col justify-between border-l-4 border-blue-500';
@@ -629,11 +611,9 @@
 
         function openStudentModal(id = null) {
             const m = document.getElementById('student-modal');
-            const f = document.getElementById('student-form'); 
-            f.reset();
+            const f = document.getElementById('student-form'); f.reset();
             document.getElementById('student-id').value = id || "";
             document.getElementById('price-log-container').classList.add('hidden');
-
             if(id) {
                 const s = appState.students.find(x => x.id == id);
                 if (s) {
@@ -641,7 +621,6 @@
                     document.getElementById('student-grade').value = s.grade;
                     document.getElementById('student-price').value = s.price;
                     document.getElementById('student-notes').value = s.notes || "";
-                    
                     const logs = appState.priceLogs.filter(l => l.studentId == id);
                     if(logs.length > 0) {
                         document.getElementById('price-log-container').classList.remove('hidden');
@@ -656,7 +635,6 @@
             e.preventDefault();
             const id = document.getElementById('student-id').value;
             const price = parseFloat(document.getElementById('student-price').value);
-            
             if(id) {
                 const idx = appState.students.findIndex(x => x.id == id);
                 const old = appState.students[idx];
@@ -674,7 +652,7 @@
         }
 
         function deleteStudent(id) {
-            if(!confirm("Bu öğrenciyi ve tüm kayıtlarını kalıcı olarak silmek istiyor musunuz?")) return;
+            if(!confirm("Kalıcı olarak silmek istiyor musunuz?")) return;
             appState.students = appState.students.filter(s => s.id !== id);
             appState.lessons = appState.lessons.filter(l => l.studentId !== id);
             appState.accounting = appState.accounting.filter(a => a.studentId !== id);
@@ -683,19 +661,16 @@
             saveToCloud();
         }
 
-        // --- ACCOUNTING ---
         function renderAccounting(q = "") {
             const body = document.getElementById('accounting-table-body');
             if (!body) return;
             body.innerHTML = '';
             let tD = 0, tP = 0, tE = 0;
-            
             appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
                 const lessons = appState.lessons.filter(l => l.studentId === s.id && l.attendance);
                 const debt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
                 const paid = appState.accounting.filter(a => a.studentId === s.id && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
                 tD += debt; tP += paid;
-
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
                 row.innerHTML = `
@@ -708,13 +683,11 @@
                 `;
                 body.appendChild(row);
             });
-
             tE = appState.accounting.filter(a => a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
             document.getElementById('acc-total-debt').innerText = `₺${tD}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
             document.getElementById('acc-total-expense').innerText = `₺${tE}`;
             document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
-            
             document.getElementById('foot-debt').innerText = `₺${tD}`;
             document.getElementById('foot-paid').innerText = `₺${tP}`;
             document.getElementById('foot-balance').innerText = `₺${tD - tP}`;
@@ -747,19 +720,18 @@
             saveToCloud();
         }
 
-        // --- STATS ---
+        // --- Geliştirilmiş İstatistik Mantığı ---
         function initStats() {
-            // Önceki grafikleri temizle
             if (appState.charts.mood) appState.charts.mood.destroy();
             if (appState.charts.subjectsSuccess) appState.charts.subjectsSuccess.destroy();
             if (appState.charts.performance) appState.charts.performance.destroy();
             if (appState.charts.reading) appState.charts.reading.destroy();
 
-            const studentSelect = document.getElementById('stats-student-select');
-            const studentId = studentSelect ? parseInt(studentSelect.value) : null;
+            const studentId = parseInt(document.getElementById('stats-student-select').value);
+            const selectedBranch = document.getElementById('stats-branch-select').value;
             const dataPool = studentId ? appState.lessons.filter(l => l.studentId === studentId) : appState.lessons;
 
-            // 1. Mood Chart
+            // 1. Duygu Durumu (Genel)
             const moodCtx = document.getElementById('chart-mood');
             if (moodCtx) {
                 const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
@@ -770,7 +742,7 @@
                 });
             }
 
-            // 2. Branş Bazlı Başarı Oranı (%)
+            // 2. Branş Bazlı Ortalama Başarı (Bar Chart)
             const successCtx = document.getElementById('chart-subjects-success');
             if (successCtx) {
                 const branchStats = {}; 
@@ -785,15 +757,67 @@
                 });
                 const labels = appState.branches;
                 const data = labels.map(b => branchStats[b].total > 0 ? ((branchStats[b].correct / branchStats[b].total) * 100).toFixed(1) : 0);
-
                 appState.charts.subjectsSuccess = new Chart(successCtx, {
                     type: 'bar',
-                    data: { labels, datasets:[{ label:'Başarı %', data, backgroundColor:'#3b82f6' }] },
+                    data: { labels, datasets:[{ label:'Genel Başarı %', data, backgroundColor:'#3b82f6' }] },
                     options: { maintainAspectRatio:false, scales:{ y:{ min:0, max:100, ticks:{color:'#94a3b8'} }, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
                 });
             }
 
-            // 3. Okuma Hızı & Anlama Grafiği
+            // 3. Test Bazlı Gelişim Grafiği (LİNE - % Başarı)
+            const perfCtx = document.getElementById('chart-test-performance');
+            if (perfCtx) {
+                const testHistory = [];
+                dataPool.forEach(l => {
+                    (l.tests || []).forEach(t => {
+                        const successRate = t.q > 0 ? (t.d / t.q) * 100 : 0;
+                        testHistory.push({ branch: t.branch, rate: successRate, date: l.id });
+                    });
+                });
+
+                let filteredHistory = [];
+                let title = "Test Başarı Gelişimi (%)";
+
+                if (selectedBranch === "ALL") {
+                    // Genel Başarı: Aynı ders/tarihteki testlerin ortalamasını al
+                    const grouped = {};
+                    testHistory.forEach(th => {
+                        if(!grouped[th.date]) grouped[th.date] = { sum: 0, count: 0 };
+                        grouped[th.date].sum += th.rate;
+                        grouped[th.date].count++;
+                    });
+                    filteredHistory = Object.keys(grouped).sort().map(key => grouped[key].sum / grouped[key].count);
+                    title = "Genel Başarı Ortalaması (%)";
+                } else {
+                    // Seçili Branşın testi
+                    filteredHistory = testHistory.filter(th => th.branch === selectedBranch).map(th => th.rate);
+                    title = `${selectedBranch} Başarı Grafiği (%)`;
+                }
+
+                document.getElementById('chart-main-title').innerText = title;
+
+                const labels = filteredHistory.map((_, i) => `${i+1}. Test`);
+                appState.charts.performance = new Chart(perfCtx, {
+                    type: 'line',
+                    data: { 
+                        labels, 
+                        datasets:[{ 
+                            label: selectedBranch === "ALL" ? 'Ortalama %' : selectedBranch + ' %', 
+                            data: filteredHistory, 
+                            borderColor: '#3b82f6', 
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                            fill: true, 
+                            tension: 0.4 
+                        }] 
+                    },
+                    options: { 
+                        maintainAspectRatio:false, 
+                        scales: { y: { min: 0, max: 100, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } 
+                    }
+                });
+            }
+
+            // 4. Okuma & Anlama (Sadece Öğrenci Seçiliyse Anlamlı)
             const readCtx = document.getElementById('chart-reading');
             if (readCtx) {
                 const pool = dataPool.filter(l => l.words || l.comprehension).slice(-15);
@@ -816,37 +840,8 @@
                     }
                 });
             }
-
-            // 4. Detaylı Test Performansı (Branşlara göre Doğru sayıları)
-            const perfCtx = document.getElementById('chart-performance');
-            if (perfCtx) {
-                const pool = dataPool.filter(l => l.tests && l.tests.length > 0).slice(-10);
-                const labels = pool.map((_, i) => `Ders ${i+1}`);
-                
-                // Her branş için ayrı dataset
-                const datasets = appState.branches.map((branch, idx) => {
-                    const colors = ['#3b82f6','#ef4444','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899','#8b5cf6'];
-                    return {
-                        label: branch,
-                        data: pool.map(l => {
-                            const t = l.tests.find(test => test.branch === branch);
-                            return t ? parseInt(t.d || 0) : null;
-                        }),
-                        borderColor: colors[idx % colors.length],
-                        tension: 0.2,
-                        spanGaps: true
-                    };
-                }).filter(ds => ds.data.some(d => d !== null));
-
-                appState.charts.performance = new Chart(perfCtx, {
-                    type: 'line',
-                    data: { labels, datasets },
-                    options: { maintainAspectRatio:false, plugins: { legend: { labels: { font: { size: 9 } } } } }
-                });
-            }
         }
 
-        // --- HELPERS ---
         function getStudentName(id) { return appState.students.find(s => s.id === id)?.name || "Bilinmiyor"; }
         function getStudentPrice(id) { return appState.students.find(s => s.id === id)?.price || 0; }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
@@ -857,7 +852,6 @@
         }
         function loadStudentStats() { initStats(); }
 
-        // --- EXPORTS ---
         async function exportFullCalendarPDF() {
             const el = document.getElementById('calendar-grid');
             const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
@@ -876,9 +870,7 @@
             pdf.text(`Tarih: ${new Date(l.id).toLocaleDateString('tr-TR')} - Saat: ${l.time}`, 20, 50);
             pdf.text(`Branşlar: ${l.selectedBranches.join(', ')}`, 20, 60);
             pdf.text('TEST SONUÇLARI:', 20, 80);
-            (l.tests || []).forEach((t, i) => {
-                pdf.text(`${t.branch}: ${t.q}S - ${t.d}D - ${t.w}Y - ${t.e}B`, 25, 90 + (i*7));
-            });
+            (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D - ${t.w}Y - ${t.e}B`, 25, 90 + (i*7)); });
             pdf.text(`HIZLI OKUMA: ${l.words || 0} Kelime / %${l.comprehension || 0} Anlama`, 20, 140);
             pdf.text('EĞİTMEN NOTLARI:', 20, 160);
             pdf.text(pdf.splitTextToSize(l.notes || '-', 170), 20, 170);
@@ -889,9 +881,8 @@
             const el = document.getElementById('stats-container');
             const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            const imgData = canvas.toDataURL('image/png');
             pdf.text('Ogrenci Gelisim Raporu', 105, 10, {align:'center'});
-            pdf.addImage(imgData, 'PNG', 10, 20, 190, 260);
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 260);
             pdf.save('Gelisim_Raporu.pdf');
         }
 
@@ -903,10 +894,7 @@
             pdf.save('Muhasebe_Raporu.pdf');
         }
 
-        // --- START ---
-        window.onload = () => {
-            fetchData();
-        };
+        window.onload = () => { fetchData(); };
     </script>
 </body>
 </html>

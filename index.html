@@ -57,7 +57,7 @@
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div class="flex items-center space-x-4">
                     <button class="p-2 glass-card rounded-lg" onclick="changeWeek(-1)"><i class="fas fa-chevron-left"></i></button>
-                    <h2 id="calendar-date-range" class="text-lg font-semibold uppercase tracking-tight">Ocak 2024</h2>
+                    <h2 id="calendar-date-range" class="text-lg font-semibold uppercase tracking-tight">Hafta</h2>
                     <button class="p-2 glass-card rounded-lg" onclick="changeWeek(1)"><i class="fas fa-chevron-right"></i></button>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
@@ -264,7 +264,7 @@
         </div>
     </div>
 
-    <!-- Diğer Modallar (Öğrenci, İşlem vb.) ... -->
+    <!-- Diğer Modallar -->
     <div id="student-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-lg rounded-2xl p-6 relative">
             <button onclick="closeModal('student-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
@@ -351,7 +351,7 @@
             } catch(e) {
                 console.error("Fetch hatası:", e);
                 document.getElementById('loader').classList.add('hidden');
-                initCalendar(); // Hata olsa bile başlat
+                initCalendar();
             }
         }
 
@@ -418,7 +418,8 @@
             first.setDate(diff);
             const last = new Date(first); last.setDate(first.getDate() + 6);
             const opt = { day: 'numeric', month: 'long' };
-            document.getElementById('calendar-date-range').innerText = `${first.toLocaleDateString('tr-TR', opt)} - ${last.toLocaleDateString('tr-TR', opt)} ${last.getFullYear()}`;
+            const rangeText = document.getElementById('calendar-date-range');
+            if (rangeText) rangeText.innerText = `${first.toLocaleDateString('tr-TR', opt)} - ${last.toLocaleDateString('tr-TR', opt)} ${last.getFullYear()}`;
         }
 
         function changeWeek(off) { appState.currentWeekOffset += off; initCalendar(); }
@@ -460,20 +461,25 @@
 
             if(id) {
                 const l = appState.lessons.find(x => x.id == id);
-                document.getElementById('lesson-student').value = l.studentId;
-                document.getElementById('lesson-time').value = l.time;
-                document.getElementById('lesson-attendance').checked = l.attendance;
-                document.getElementById('l-words').value = l.words || "";
-                document.getElementById('l-comp').value = l.comprehension || "";
-                document.getElementById('lesson-notes').value = l.notes || "";
-                document.getElementById('lesson-reminders').value = l.reminders || "";
-                
-                if(l.mood) { const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); if(r) r.checked = true; }
-                (l.selectedBranches || []).forEach(bName => {
-                    const chip = [...bc.children].find(c => c.innerText === bName);
-                    if(chip) chip.classList.add('active');
-                });
-                (l.tests || []).forEach(t => addTestRow(t));
+                if (l) {
+                    document.getElementById('lesson-student').value = l.studentId;
+                    document.getElementById('lesson-time').value = l.time;
+                    document.getElementById('lesson-attendance').checked = l.attendance;
+                    document.getElementById('l-words').value = l.words || "";
+                    document.getElementById('l-comp').value = l.comprehension || "";
+                    document.getElementById('lesson-notes').value = l.notes || "";
+                    document.getElementById('lesson-reminders').value = l.reminders || "";
+                    
+                    if(l.mood) { 
+                        const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); 
+                        if(r) r.checked = true; 
+                    }
+                    (l.selectedBranches || []).forEach(bName => {
+                        const chip = [...bc.children].find(c => c.innerText === bName);
+                        if(chip) chip.classList.add('active');
+                    });
+                    (l.tests || []).forEach(t => addTestRow(t));
+                }
             }
             modal.classList.remove('hidden');
         }
@@ -497,53 +503,61 @@
 
         function saveLesson(e) {
             e.preventDefault();
-            const id = document.getElementById('lesson-id').value;
-            const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
             
-            const tests = [];
-            document.getElementById('test-rows-container').children.forEach(row => {
-                tests.push({
-                    branch: row.querySelector('select').value,
-                    q: row.querySelectorAll('input')[0].value,
-                    d: row.querySelectorAll('input')[1].value
+            try {
+                const id = document.getElementById('lesson-id').value;
+                const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
+                
+                const tests = [];
+                const testRows = Array.from(document.getElementById('test-rows-container').children);
+                testRows.forEach(row => {
+                    tests.push({
+                        branch: row.querySelector('select').value,
+                        q: row.querySelectorAll('input')[0].value,
+                        d: row.querySelectorAll('input')[1].value
+                    });
                 });
-            });
 
-            const lesson = {
-                id: id ? parseInt(id) : Date.now(),
-                studentId: parseInt(document.getElementById('lesson-student').value),
-                day: parseInt(document.getElementById('lesson-day').value),
-                time: document.getElementById('lesson-time').value,
-                attendance: document.getElementById('lesson-attendance').checked,
-                selectedBranches: branches,
-                tests: tests,
-                words: document.getElementById('l-words').value,
-                comprehension: document.getElementById('l-comp').value,
-                mood: document.querySelector('input[name="mood"]:checked')?.value || null,
-                notes: document.getElementById('lesson-notes').value,
-                reminders: document.getElementById('lesson-reminders').value,
-                unitPrice: getStudentPrice(parseInt(document.getElementById('lesson-student').value))
-            };
+                const studentId = parseInt(document.getElementById('lesson-student').value);
+                const lesson = {
+                    id: id ? parseInt(id) : Date.now(),
+                    studentId: studentId,
+                    day: parseInt(document.getElementById('lesson-day').value),
+                    time: document.getElementById('lesson-time').value,
+                    attendance: document.getElementById('lesson-attendance').checked,
+                    selectedBranches: branches,
+                    tests: tests,
+                    words: document.getElementById('l-words').value,
+                    comprehension: document.getElementById('l-comp').value,
+                    mood: document.querySelector('input[name="mood"]:checked')?.value || null,
+                    notes: document.getElementById('lesson-notes').value,
+                    reminders: document.getElementById('lesson-reminders').value,
+                    unitPrice: getStudentPrice(studentId)
+                };
 
-            if(id) {
-                const idx = appState.lessons.findIndex(x => x.id == id);
-                appState.lessons[idx] = lesson;
-            } else {
-                appState.lessons.push(lesson);
+                if(id) {
+                    const idx = appState.lessons.findIndex(x => x.id == id);
+                    if (idx !== -1) appState.lessons[idx] = lesson;
+                } else {
+                    appState.lessons.push(lesson);
+                }
+                
+                closeModal('lesson-modal');
+                renderAllLessons();
+                saveToCloud();
+            } catch (err) {
+                console.error("Ders kaydedilirken hata:", err);
             }
-            
-            closeModal('lesson-modal');
-            renderAllLessons();
-            saveToCloud();
         }
 
         // --- STUDENTS ---
         function renderStudents(filter = "") {
             const list = document.getElementById('student-list');
             const empty = document.getElementById('empty-student-msg');
+            if (!list) return;
             list.innerHTML = '';
             const data = appState.students.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()));
-            if(data.length === 0) { empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); }
+            if(data.length === 0) { empty?.classList.remove('hidden'); } else { empty?.classList.add('hidden'); }
 
             data.forEach(s => {
                 const card = document.createElement('div');
@@ -571,21 +585,24 @@
 
         function openStudentModal(id = null) {
             const m = document.getElementById('student-modal');
-            const f = document.getElementById('student-form'); f.reset();
+            const f = document.getElementById('student-form'); 
+            f.reset();
             document.getElementById('student-id').value = id || "";
             document.getElementById('price-log-container').classList.add('hidden');
 
             if(id) {
                 const s = appState.students.find(x => x.id == id);
-                document.getElementById('student-name').value = s.name;
-                document.getElementById('student-grade').value = s.grade;
-                document.getElementById('student-price').value = s.price;
-                document.getElementById('student-notes').value = s.notes || "";
-                
-                const logs = appState.priceLogs.filter(l => l.studentId == id);
-                if(logs.length > 0) {
-                    document.getElementById('price-log-container').classList.remove('hidden');
-                    document.getElementById('price-log-list').innerHTML = logs.map(l => `<li>${l.date}: ₺${l.old} ➔ ₺${l.new}</li>`).join('');
+                if (s) {
+                    document.getElementById('student-name').value = s.name;
+                    document.getElementById('student-grade').value = s.grade;
+                    document.getElementById('student-price').value = s.price;
+                    document.getElementById('student-notes').value = s.notes || "";
+                    
+                    const logs = appState.priceLogs.filter(l => l.studentId == id);
+                    if(logs.length > 0) {
+                        document.getElementById('price-log-container').classList.remove('hidden');
+                        document.getElementById('price-log-list').innerHTML = logs.map(l => `<li>${l.date}: ₺${l.old} ➔ ₺${l.new}</li>`).join('');
+                    }
                 }
             }
             m.classList.remove('hidden');
@@ -625,6 +642,7 @@
         // --- ACCOUNTING ---
         function renderAccounting(q = "") {
             const body = document.getElementById('accounting-table-body');
+            if (!body) return;
             body.innerHTML = '';
             let tD = 0, tP = 0, tE = 0;
             
@@ -685,45 +703,52 @@
             saveToCloud();
         }
 
-        // --- STATS (CHART.JS) ---
+        // --- STATS ---
         function initStats() {
             if (appState.charts.mood) appState.charts.mood.destroy();
             if (appState.charts.subjects) appState.charts.subjects.destroy();
             if (appState.charts.performance) appState.charts.performance.destroy();
 
-            const studentId = parseInt(document.getElementById('stats-student-select').value);
+            const studentSelect = document.getElementById('stats-student-select');
+            const studentId = studentSelect ? parseInt(studentSelect.value) : null;
             const dataPool = studentId ? appState.lessons.filter(l => l.studentId === studentId) : appState.lessons;
 
-            // Mood Chart
-            const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
-            appState.charts.mood = new Chart(document.getElementById('chart-mood'), {
-                type: 'doughnut',
-                data: { labels: ['Çok Kötü','Kötü','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
-                options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
-            });
+            const moodCtx = document.getElementById('chart-mood');
+            if (moodCtx) {
+                const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
+                appState.charts.mood = new Chart(moodCtx, {
+                    type: 'doughnut',
+                    data: { labels: ['Çok Kötü','Kötü','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] },
+                    options: { maintainAspectRatio:false, plugins:{ legend:{position:'bottom', labels:{color:'#94a3b8', font:{size:9}}} } }
+                });
+            }
 
-            // Subjects Chart
-            const branchCount = {}; appState.branches.forEach(b => branchCount[b] = 0);
-            dataPool.forEach(l => (l.selectedBranches || []).forEach(b => branchCount[b]++));
-            appState.charts.subjects = new Chart(document.getElementById('chart-subjects'), {
-                type: 'bar',
-                data: { labels: Object.keys(branchCount), datasets:[{ label:'Ders Sayısı', data: Object.values(branchCount), backgroundColor:'#3b82f6' }] },
-                options: { maintainAspectRatio:false, scales:{ y:{ticks:{color:'#94a3b8'}}, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
-            });
+            const subCtx = document.getElementById('chart-subjects');
+            if (subCtx) {
+                const branchCount = {}; appState.branches.forEach(b => branchCount[b] = 0);
+                dataPool.forEach(l => (l.selectedBranches || []).forEach(b => branchCount[b]++));
+                appState.charts.subjects = new Chart(subCtx, {
+                    type: 'bar',
+                    data: { labels: Object.keys(branchCount), datasets:[{ label:'Ders Sayısı', data: Object.values(branchCount), backgroundColor:'#3b82f6' }] },
+                    options: { maintainAspectRatio:false, scales:{ y:{ticks:{color:'#94a3b8'}}, x:{ticks:{color:'#94a3b8', font:{size:8}}} } }
+                });
+            }
 
-            // Performance
-            const perfLabels = dataPool.slice(-10).map((l, i) => `Ders ${i+1}`);
-            const testData = dataPool.slice(-10).map(l => {
-                if(!l.tests || l.tests.length === 0) return 0;
-                let total = 0, correct = 0;
-                l.tests.forEach(t => { total += parseInt(t.q || 0); correct += parseInt(t.d || 0); });
-                return total > 0 ? (correct / total) * 100 : 0;
-            });
-            appState.charts.performance = new Chart(document.getElementById('chart-performance'), {
-                type: 'line',
-                data: { labels: perfLabels, datasets:[{ label:'Başarı Oranı (%)', data: testData, borderColor:'#10b981', tension:0.4 }] },
-                options: { maintainAspectRatio:false }
-            });
+            const perfCtx = document.getElementById('chart-performance');
+            if (perfCtx) {
+                const perfLabels = dataPool.slice(-10).map((l, i) => `Ders ${i+1}`);
+                const testData = dataPool.slice(-10).map(l => {
+                    if(!l.tests || l.tests.length === 0) return 0;
+                    let total = 0, correct = 0;
+                    l.tests.forEach(t => { total += parseInt(t.q || 0); correct += parseInt(t.d || 0); });
+                    return total > 0 ? (correct / total) * 100 : 0;
+                });
+                appState.charts.performance = new Chart(perfCtx, {
+                    type: 'line',
+                    data: { labels: perfLabels, datasets:[{ label:'Başarı Oranı (%)', data: testData, borderColor:'#10b981', tension:0.4 }] },
+                    options: { maintainAspectRatio:false }
+                });
+            }
         }
 
         // --- HELPERS ---
@@ -731,7 +756,10 @@
         function getStudentPrice(id) { return appState.students.find(s => s.id === id)?.price || 0; }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function filterStudents(q) { renderStudents(q); }
-        function updateStatsSelect() { document.getElementById('stats-student-select').innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function updateStatsSelect() { 
+            const select = document.getElementById('stats-student-select');
+            if (select) select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); 
+        }
         function loadStudentStats() { initStats(); }
 
         // --- EXPORTS ---

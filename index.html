@@ -135,7 +135,7 @@
 
         <!-- MUHASEBE BÖLÜMÜ -->
         <section id="section-accounting" class="tab-content hidden">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-center">
                 <div class="glass-card p-4 rounded-xl border-t-4 border-blue-500">
                     <p class="text-[10px] text-slate-400 uppercase">Toplam Alacak</p>
                     <h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4>
@@ -143,14 +143,6 @@
                 <div class="glass-card p-4 rounded-xl border-t-4 border-green-500">
                     <p class="text-[10px] text-slate-400 uppercase">Toplam Tahsilat</p>
                     <h4 id="acc-total-paid" class="text-lg font-bold">₺0</h4>
-                </div>
-                <div class="glass-card p-4 rounded-xl border-t-4 border-red-500">
-                    <p class="text-[10px] text-slate-400 uppercase">Toplam Gider</p>
-                    <h4 id="acc-total-expense" class="text-lg font-bold">₺0</h4>
-                </div>
-                <div class="glass-card p-4 rounded-xl border-t-4 border-purple-500">
-                    <p class="text-[10px] text-slate-400 uppercase">Kasa Bakiye</p>
-                    <h4 id="acc-balance" class="text-lg font-bold">₺0</h4>
                 </div>
             </div>
 
@@ -342,13 +334,10 @@
                     <label class="block text-xs mb-1 text-slate-500 uppercase">Eğitmen Notları</label>
                     <textarea id="student-notes" class="w-full h-24"></textarea>
                 </div>
-                
-                <!-- Ücret Log Bölümü -->
                 <div id="price-log-container" class="hidden bg-slate-800/50 p-3 rounded-lg mt-4">
                     <p class="text-[9px] font-bold text-slate-400 uppercase mb-2">Fiyat Revizyon Geçmişi</p>
                     <ul id="price-log-list" class="text-[10px] text-slate-400 space-y-1"></ul>
                 </div>
-
                 <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold mt-4">Kayıt İşlemini Tamamla</button>
             </form>
         </div>
@@ -362,7 +351,7 @@
             students: [],
             lessons: [],
             accounting: [],
-            priceLogs: [], // Fiyat logları için ana depo
+            priceLogs: [],
             currentWeekOffset: 0,
             branches: ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"],
             charts: { mood: null, subjectsSuccess: null, performance: null, reading: null, branchCount: null }
@@ -486,7 +475,6 @@
             if(tabId === 'accounting') renderAccounting();
         }
 
-        // --- TAKVİM ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
             if(!grid) return;
@@ -699,23 +687,30 @@
         function renderAccounting(q = "") {
             const body = document.getElementById('accounting-table-body');
             if (!body) return; body.innerHTML = '';
-            let tD = 0, tP = 0, tE = 0;
-            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+            let tD = 0, tP = 0, tE = 0, tL = 0;
+            const studentsToRender = appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
+            
+            studentsToRender.forEach(s => {
                 const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
                 const lessonDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
                 const extraExpenses = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
                 const paid = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
-                tD += lessonDebt; tP += paid; tE += extraExpenses;
                 const bal = (lessonDebt + extraExpenses) - paid;
+                tD += lessonDebt; tP += paid; tE += extraExpenses; tL += lessons.length;
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
                 row.innerHTML = `<td class="p-4 font-bold">${s.name}</td><td class="p-4">${lessons.length}</td><td class="p-4 text-blue-400">₺${lessonDebt}</td><td class="p-4 text-orange-400">₺${extraExpenses}</td><td class="p-4 text-green-500 font-bold">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-500'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history"></i></button></td>`;
                 body.appendChild(row);
             });
-            document.getElementById('acc-total-debt').innerText = `₺${tD}`;
+
+            if (studentsToRender.length > 0) {
+                const totalRow = document.createElement('tr');
+                totalRow.className = 'bg-slate-800 font-bold border-t-2 border-slate-700';
+                totalRow.innerHTML = `<td class="p-4 uppercase">GENEL TOPLAM</td><td class="p-4">${tL}</td><td class="p-4 text-blue-400">₺${tD}</td><td class="p-4 text-orange-400">₺${tE}</td><td class="p-4 text-green-500">₺${tP}</td><td class="p-4 ${ (tD + tE - tP) > 0 ? 'text-red-500' : 'text-blue-500' }">₺${tD + tE - tP}</td><td class="p-4"></td>`;
+                body.appendChild(totalRow);
+            }
+            document.getElementById('acc-total-debt').innerText = `₺${tD + tE}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
-            document.getElementById('acc-total-expense').innerText = `₺${tE}`;
-            document.getElementById('acc-balance').innerText = `₺${tP - tE}`;
         }
 
         function viewHistory(studentId) {
@@ -769,32 +764,20 @@
             const f = document.getElementById('student-form'); f.reset();
             const logContainer = document.getElementById('price-log-container');
             const logList = document.getElementById('price-log-list');
-            
             tempStudentPhoto = "";
             document.getElementById('student-photo-preview').innerHTML = `<i class="fas fa-user text-3xl text-slate-600"></i>`;
             document.getElementById('student-id').value = id || "";
             logContainer.classList.add('hidden');
             logList.innerHTML = "";
-
             if(id) {
                 const s = appState.students.find(x => String(x.id) === String(id));
                 if (s) {
-                    document.getElementById('student-name').value = s.name; 
-                    document.getElementById('student-grade').value = s.grade; 
-                    document.getElementById('student-price').value = s.price; 
-                    document.getElementById('student-notes').value = s.notes || "";
+                    document.getElementById('student-name').value = s.name; document.getElementById('student-grade').value = s.grade; document.getElementById('student-price').value = s.price; document.getElementById('student-notes').value = s.notes || "";
                     if (s.photo) { tempStudentPhoto = s.photo; document.getElementById('student-photo-preview').innerHTML = `<img src="${s.photo}" class="w-full h-full object-cover">`; }
-                
-                    // Fiyat Loglarını Göster
                     const logs = (appState.priceLogs || []).filter(l => String(l.studentId) === String(id));
                     if (logs.length > 0) {
                         logContainer.classList.remove('hidden');
-                        logList.innerHTML = logs.map(l => `
-                            <li class="flex justify-between border-b border-slate-700/50 pb-1">
-                                <span>${l.date}</span>
-                                <span class="font-bold">₺${l.old} ➔ ₺${l.new}</span>
-                            </li>
-                        `).join('');
+                        logList.innerHTML = logs.map(l => `<li class="flex justify-between border-b border-slate-700/50 pb-1"><span>${l.date}</span><span class="font-bold">₺${l.old} ➔ ₺${l.new}</span></li>`).join('');
                     }
                 }
             }
@@ -808,7 +791,6 @@
             const name = document.getElementById('student-name').value;
             const grade = document.getElementById('student-grade').value;
             const notes = document.getElementById('student-notes').value;
-
             if(id) {
                 const idx = appState.students.findIndex(x => String(x.id) === String(id));
                 const old = appState.students[idx];
@@ -817,14 +799,12 @@
                     appState.priceLogs.push({ studentId: id, old: old.price, new: price, date: new Date().toLocaleString('tr-TR') });
                 }
                 appState.students[idx] = { id, photo: tempStudentPhoto, name, grade, price, notes };
-            } else {
-                appState.students.push({ id: Date.now().toString(), photo: tempStudentPhoto, name, grade, price, notes });
-            }
+            } else appState.students.push({ id: Date.now().toString(), photo: tempStudentPhoto, name, grade, price, notes });
             closeModal('student-modal'); renderStudents(); updateStatsSelect(); saveToCloud();
         }
 
         function deleteStudent(id) {
-            if(!id || !confirm("Öğrenciyi silmek istediğinize emin misiniz?")) return;
+            if(!id || !confirm("Öğrenciyi ve tüm kayıtlarını silmek istediğinize emin misiniz?")) return;
             appState.students = appState.students.filter(s => String(s.id) !== String(id));
             appState.lessons = appState.lessons.filter(l => String(l.studentId) !== String(id));
             appState.accounting = appState.accounting.filter(a => String(a.studentId) !== String(id));

@@ -112,12 +112,10 @@
                     <h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Gelişimi (%)</h3>
                     <div class="h-[300px]"><canvas id="chart-test-performance"></canvas></div>
                 </div>
-
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Branş Bazlı Ders Sayısı</h3>
                     <div class="h-[300px]"><canvas id="chart-branch-count"></canvas></div>
                 </div>
-
                 <div class="glass-card p-4 rounded-xl">
                     <h3 class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Duygu Durumu Dağılımı</h3>
                     <div class="h-[250px]"><canvas id="chart-mood"></canvas></div>
@@ -136,8 +134,8 @@
         <!-- MUHASEBE BÖLÜMÜ -->
         <section id="section-accounting" class="tab-content hidden">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-center">
-                <div class="glass-card p-4 rounded-xl border-t-4 border-blue-500">
-                    <p class="text-[10px] text-slate-400 uppercase">Toplam Alacak</p>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-red-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Kalan Bakiye</p>
                     <h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4>
                 </div>
                 <div class="glass-card p-4 rounded-xl border-t-4 border-green-500">
@@ -167,7 +165,7 @@
                             <th class="p-4">Harcamalar</th>
                             <th class="p-4">Ödenen</th>
                             <th class="p-4">Kalan Bakiye</th>
-                            <th class="p-4">Detay</th>
+                            <th class="p-4 text-center">Detay</th>
                         </tr>
                     </thead>
                     <tbody id="accounting-table-body"></tbody>
@@ -185,6 +183,7 @@
     </div>
 
     <!-- Modallar -->
+    <!-- Ders Modalı -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
             <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
@@ -282,6 +281,7 @@
             <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
             <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">Finansal Veri Girişi</h2>
             <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
+                <input type="hidden" id="transaction-id">
                 <input type="hidden" id="transaction-type">
                 <div>
                     <label class="block text-xs mb-1 text-slate-500 uppercase">İlgili Öğrenci</label>
@@ -312,7 +312,6 @@
                         <i class="fas fa-user text-3xl text-slate-600"></i>
                     </div>
                     <input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48" onchange="handleStudentPhoto(event)">
-                    <p class="text-[9px] text-slate-500 mt-1">Sheets sınırı nedeniyle fotoğraf otomatik küçültülür.</p>
                 </div>
                 <div>
                     <label class="block text-xs mb-1 text-slate-500 uppercase">Tam Adı</label>
@@ -475,6 +474,7 @@
             if(tabId === 'accounting') renderAccounting();
         }
 
+        // --- TAKVİM ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
             if(!grid) return;
@@ -699,7 +699,7 @@
                 tD += lessonDebt; tP += paid; tE += extraExpenses; tL += lessons.length;
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
-                row.innerHTML = `<td class="p-4 font-bold">${s.name}</td><td class="p-4">${lessons.length}</td><td class="p-4 text-blue-400">₺${lessonDebt}</td><td class="p-4 text-orange-400">₺${extraExpenses}</td><td class="p-4 text-green-500 font-bold">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-500'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history"></i></button></td>`;
+                row.innerHTML = `<td class="p-4 font-bold">${s.name}</td><td class="p-4">${lessons.length}</td><td class="p-4 text-blue-400">₺${lessonDebt}</td><td class="p-4 text-orange-400">₺${extraExpenses}</td><td class="p-4 text-green-500 font-bold">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-500'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history text-slate-400"></i></button></td>`;
                 body.appendChild(row);
             });
 
@@ -709,10 +709,12 @@
                 totalRow.innerHTML = `<td class="p-4 uppercase">GENEL TOPLAM</td><td class="p-4">${tL}</td><td class="p-4 text-blue-400">₺${tD}</td><td class="p-4 text-orange-400">₺${tE}</td><td class="p-4 text-green-500">₺${tP}</td><td class="p-4 ${ (tD + tE - tP) > 0 ? 'text-red-500' : 'text-blue-500' }">₺${tD + tE - tP}</td><td class="p-4"></td>`;
                 body.appendChild(totalRow);
             }
-            document.getElementById('acc-total-debt').innerText = `₺${tD + tE}`;
+            // Toplam Kalan Bakiye
+            document.getElementById('acc-total-debt').innerText = `₺${tD + tE - tP}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
         }
 
+        // --- MUHASEBE İŞLEM LOG YÖNETİMİ ---
         function viewHistory(studentId) {
             currentHistoryStudentId = studentId;
             const student = appState.students.find(s => String(s.id) === String(studentId));
@@ -727,12 +729,50 @@
             const query = document.getElementById('history-search-input').value.toLowerCase();
             const list = document.getElementById('acc-history-list');
             const filtered = appState.accounting.filter(a => String(a.studentId) === String(currentHistoryStudentId)).filter(a => a.desc.toLowerCase().includes(query) || a.date.toLowerCase().includes(query) || a.amount.toString().includes(query));
-            list.innerHTML = filtered.length === 0 ? '<p class="text-center py-4 text-slate-500 text-xs">Aranan kriterde işlem bulunamadı.</p>' : filtered.map(a => `<div class="flex justify-between p-3 glass-card rounded-xl border-l-4 ${a.type==='payment'?'border-green-500':'border-orange-500'}"><div class="overflow-hidden mr-2"><p class="font-bold text-sm truncate">${a.desc}</p><p class="text-[10px] text-slate-500">${a.date}</p></div><div class="text-right flex-shrink-0"><p class="font-bold">₺${a.amount}</p><p class="text-[9px] uppercase text-slate-500">${a.type==='payment'?'Ödeme':'Harcama'}</p></div></div>`).join('');
+            
+            list.innerHTML = filtered.length === 0 ? '<p class="text-center py-4 text-slate-500 text-xs">Aranan kriterde işlem bulunamadı.</p>' : filtered.map(a => `
+                <div class="flex justify-between items-center p-3 glass-card rounded-xl border-l-4 ${a.type==='payment'?'border-green-500':'border-orange-500'}">
+                    <div class="overflow-hidden mr-2">
+                        <p class="font-bold text-sm truncate">${a.desc}</p>
+                        <p class="text-[10px] text-slate-500">${a.date}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right flex-shrink-0">
+                            <p class="font-bold">₺${a.amount}</p>
+                            <p class="text-[9px] uppercase text-slate-500">${a.type==='payment'?'Ödeme':'Harcama'}</p>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="editTransaction('${a.id}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-blue-400" title="Düzenle"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteTransaction('${a.id}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-red-400" title="Sil"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editTransaction(id) {
+            const tr = appState.accounting.find(a => String(a.id) === String(id));
+            if (!tr) return;
+            openTransactionModal(tr.type);
+            document.getElementById('transaction-id').value = tr.id;
+            document.getElementById('transaction-student').value = tr.studentId;
+            document.getElementById('transaction-amount').value = tr.amount;
+            document.getElementById('transaction-desc').value = tr.desc;
+        }
+
+        function deleteTransaction(id) {
+            if (!confirm("Bu muhasebe kaydını kalıcı olarak silmek istediğinize emin misiniz?")) return;
+            appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id));
+            filterHistory();
+            renderAccounting();
+            saveToCloud();
         }
 
         function openTransactionModal(type) {
             const m = document.getElementById('transaction-modal');
-            document.getElementById('transaction-form').reset();
+            const f = document.getElementById('transaction-form');
+            f.reset();
+            document.getElementById('transaction-id').value = "";
             document.getElementById('transaction-type').value = type;
             document.getElementById('transaction-modal-title').innerText = type === 'payment' ? 'Ödeme Al' : 'Harcama Gir';
             document.getElementById('transaction-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
@@ -741,8 +781,32 @@
 
         function saveTransaction(e) {
             e.preventDefault();
-            appState.accounting.push({ id: Date.now().toString(), type: document.getElementById('transaction-type').value, studentId: document.getElementById('transaction-student').value, amount: parseFloat(document.getElementById('transaction-amount').value), desc: document.getElementById('transaction-desc').value, date: new Date().toLocaleString('tr-TR') });
-            e.target.reset(); closeModal('transaction-modal'); renderAccounting(); saveToCloud();
+            const id = document.getElementById('transaction-id').value;
+            const type = document.getElementById('transaction-type').value;
+            const studentId = document.getElementById('transaction-student').value;
+            const amount = parseFloat(document.getElementById('transaction-amount').value);
+            const desc = document.getElementById('transaction-desc').value;
+
+            const newTr = { 
+                id: id || Date.now().toString(), 
+                type, 
+                studentId, 
+                amount, 
+                desc, 
+                date: id ? appState.accounting.find(a => a.id == id).date : new Date().toLocaleString('tr-TR') 
+            };
+
+            if (id) {
+                const idx = appState.accounting.findIndex(a => String(a.id) === String(id));
+                if (idx !== -1) appState.accounting[idx] = newTr;
+            } else {
+                appState.accounting.push(newTr);
+            }
+
+            e.target.reset(); 
+            closeModal('transaction-modal'); 
+            renderAccounting(); 
+            saveToCloud();
         }
 
         // --- STUDENT MANAGEMENT ---

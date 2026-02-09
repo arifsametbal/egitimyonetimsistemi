@@ -199,7 +199,7 @@
         </div>
     </div>
 
-    <!-- İşlem Modal (KATMAN DEĞERİ ARTIRILDI: z-[70]) -->
+    <!-- İşlem Modal -->
     <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[70] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
             <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times text-xl"></i></button>
@@ -251,10 +251,18 @@
         function updateStatsSelect() { 
             const select = document.getElementById('stats-student-select'); 
             const accSelect = document.getElementById('transaction-student');
-            if(!select || !accSelect) return;
-            const options = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            select.innerHTML = options;
-            accSelect.innerHTML = options;
+            const branchSelect = document.getElementById('stats-branch-select');
+            
+            if (select && accSelect) {
+                const options = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                select.innerHTML = options;
+                accSelect.innerHTML = options;
+            }
+            
+            if (branchSelect) {
+                const branchOptions = '<option value="ALL">Tüm Branşlar (Genel)</option>' + appState.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+                branchSelect.innerHTML = branchOptions;
+            }
         }
 
         // --- FETCH ENGINE ---
@@ -358,7 +366,7 @@
             });
         }
 
-        // --- MODAL ACTIONS ---
+        // --- LESSON ---
         function openLessonModal(day, id = null) {
             const modal = document.getElementById('lesson-modal');
             const form = document.getElementById('lesson-form');
@@ -366,12 +374,15 @@
             tempLessonMedia = [];
             document.getElementById('lesson-media-preview').innerHTML = '';
             document.getElementById('lesson-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            
             const bc = document.getElementById('branch-container');
             bc.innerHTML = appState.branches.map(b => `<div class="branch-chip" onclick="toggleBranchChip(this)">${b}</div>`).join('');
+            
             document.getElementById('test-rows-container').innerHTML = '';
             document.getElementById('lesson-day').value = day;
             document.getElementById('lesson-id').value = id || "";
             const delBtn = document.getElementById('btn-lesson-delete');
+            
             if(id) {
                 delBtn.classList.remove('hidden');
                 const l = appState.lessons.find(x => String(x.id) === String(id));
@@ -400,8 +411,6 @@
             container.appendChild(row);
         }
 
-        function toggleBranchChip(el) { el.classList.toggle('active'); }
-
         function saveLesson(event) {
             event.preventDefault();
             const id = document.getElementById('lesson-id').value;
@@ -419,7 +428,7 @@
 
         function deleteCurrentLesson() {
             const id = document.getElementById('lesson-id').value;
-            if(!id || !confirm("Bu dersi silmek istediğinize emin misiniz?")) return;
+            if(!id || !confirm("Emin misiniz?")) return;
             appState.lessons = appState.lessons.filter(l => String(l.id) !== String(id));
             closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
         }
@@ -449,13 +458,23 @@
             document.getElementById('student-id').value = id || "";
             logContainer.classList.add('hidden');
             logList.innerHTML = "";
+
             if(id) {
                 const s = appState.students.find(x => String(x.id) === String(id));
                 if (s) {
-                    document.getElementById('student-name').value = s.name; document.getElementById('student-grade').value = s.grade; document.getElementById('student-price').value = s.price; document.getElementById('student-notes').value = s.notes || "";
-                    if (s.photo) { tempStudentPhoto = s.photo; document.getElementById('student-photo-preview').innerHTML = `<img src="${s.photo}" class="w-full h-full object-cover">`; }
+                    document.getElementById('student-name').value = s.name;
+                    document.getElementById('student-grade').value = s.grade;
+                    document.getElementById('student-price').value = s.price;
+                    document.getElementById('student-notes').value = s.notes || "";
+                    if (s.photo) {
+                        tempStudentPhoto = s.photo;
+                        document.getElementById('student-photo-preview').innerHTML = `<img src="${s.photo}" class="w-full h-full object-cover">`;
+                    }
                     const logs = (appState.priceLogs || []).filter(l => String(l.studentId) === String(id));
-                    if (logs.length > 0) { logContainer.classList.remove('hidden'); logList.innerHTML = logs.map(l => `<li class="flex justify-between border-b border-slate-700/50 pb-1"><span>${l.date}</span><span class="font-bold">₺${l.old} ➔ ₺${l.new}</span></li>`).join(''); }
+                    if (logs.length > 0) {
+                        logContainer.classList.remove('hidden');
+                        logList.innerHTML = logs.map(l => `<li class="flex justify-between border-b border-slate-700/50 pb-1"><span>${l.date}</span><span class="font-bold">₺${l.old} ➔ ₺${l.new}</span></li>`).join('');
+                    }
                 }
             }
             m.classList.remove('hidden');
@@ -465,19 +484,17 @@
             e.preventDefault();
             const id = document.getElementById('student-id').value;
             const price = parseFloat(document.getElementById('student-price').value);
-            const name = document.getElementById('student-name').value;
-            const grade = document.getElementById('student-grade').value;
-            const notes = document.getElementById('student-notes').value;
+            const data = { id: id || Date.now().toString(), photo: tempStudentPhoto, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value };
             if(id) {
                 const idx = appState.students.findIndex(x => String(x.id) === String(id));
-                if(parseFloat(appState.students[idx].price) !== price) { appState.priceLogs.push({ studentId: id, old: appState.students[idx].price, new: price, date: new Date().toLocaleString() }); }
-                appState.students[idx] = { id, photo: tempStudentPhoto, name, grade, price, notes };
-            } else appState.students.push({ id: Date.now().toString(), photo: tempStudentPhoto, name, grade, price, notes });
+                if(appState.students[idx].price !== price) appState.priceLogs.push({ studentId: id, old: appState.students[idx].price, new: price, date: new Date().toLocaleString() });
+                appState.students[idx] = data;
+            } else appState.students.push(data);
             closeModal('student-modal'); renderStudents(); updateStatsSelect(); saveToCloud();
         }
 
         function deleteStudent(id) {
-            if(!confirm("Öğrenciyi silmek istediğinize emin misiniz?")) return;
+            if(!confirm("Emin misiniz? Tüm finansal veriler ve dersler silinecektir.")) return;
             appState.students = appState.students.filter(s => String(s.id) !== String(id));
             appState.lessons = appState.lessons.filter(l => String(l.studentId) !== String(id));
             appState.accounting = appState.accounting.filter(a => String(a.studentId) !== String(id));
@@ -490,7 +507,9 @@
             const foot = document.getElementById('accounting-table-foot');
             if(!body) return; body.innerHTML = '';
             let tD = 0, tP = 0, tE = 0, tL = 0;
-            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+            const filtered = appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
+            
+            filtered.forEach(s => {
                 const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
                 const lDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
                 const eExp = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
@@ -499,7 +518,10 @@
                 tD += lDebt; tP += paid; tE += eExp; tL += lessons.length;
                 body.innerHTML += `<tr class="border-b border-slate-800 hover:bg-slate-800/20"><td class="p-4 font-bold text-xs">${s.name}</td><td class="p-4 text-center text-xs">${lessons.length}</td><td class="p-4 text-blue-400 text-xs">₺${lDebt}</td><td class="p-4 text-orange-400 text-xs">₺${eExp}</td><td class="p-4 text-green-500 font-bold text-xs">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-400'} text-xs">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded text-slate-400 hover:text-white"><i class="fas fa-history"></i></button></td></tr>`;
             });
-            if(foot) foot.innerHTML = `<tr class="bg-slate-800/40"><td class="p-4 uppercase text-[10px]">GENEL TOPLAM</td><td class="p-4 text-center">${tL}</td><td class="p-4">₺${tD}</td><td class="p-4">₺${tE}</td><td class="p-4">₺${tP}</td><td class="p-4">₺${tD + tE - tP}</td><td></td></tr>`;
+            
+            if(foot) {
+                foot.innerHTML = `<tr><td class="p-4 uppercase text-[10px]">GENEL TOPLAM</td><td class="p-4 text-center">${tL}</td><td class="p-4">₺${tD}</td><td class="p-4">₺${tE}</td><td class="p-4">₺${tP}</td><td class="p-4">₺${tD + tE - tP}</td><td></td></tr>`;
+            }
             document.getElementById('acc-total-debt').innerText = `₺${tD + tE - tP}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
         }
@@ -509,7 +531,7 @@
             const q = document.getElementById('history-search-input').value.toLowerCase();
             const list = document.getElementById('acc-history-list');
             const filtered = appState.accounting.filter(a => String(a.studentId) === String(currentHistoryStudentId)).filter(a => a.desc.toLowerCase().includes(q) || a.date.toLowerCase().includes(q) || a.amount.toString().includes(q));
-            list.innerHTML = filtered.map(a => `<div class="flex justify-between p-3 glass-card rounded border-l-4 ${a.type === 'payment' ? 'border-green-500' : 'border-orange-500'}"><div><p class="font-bold text-xs">${a.desc}</p><p class="text-[9px] opacity-50">${a.date}</p></div><div class="flex items-center gap-2"><div><p class="font-bold text-xs">₺${a.amount}</p></div><button onclick="editTransaction('${a.id}')" class="text-blue-400 p-1.5 bg-slate-800 rounded hover:bg-slate-700 transition-all"><i class="fas fa-edit"></i></button><button onclick="deleteTransaction('${a.id}')" class="text-red-500 p-1.5 bg-slate-800 rounded hover:bg-slate-700 transition-all"><i class="fas fa-trash"></i></button></div></div>`).join('');
+            list.innerHTML = filtered.map(a => `<div class="flex justify-between p-3 glass-card rounded border-l-4 ${a.type === 'payment' ? 'border-green-500' : 'border-orange-500'}"><div><p class="font-bold text-xs">${a.desc}</p><p class="text-[10px] opacity-50">${a.date}</p></div><div class="flex items-center gap-2"><div><p class="font-bold text-xs">₺${a.amount}</p></div><button onclick="editTransaction('${a.id}')" class="text-blue-400 p-1.5 bg-slate-800 rounded hover:bg-slate-700 transition-all"><i class="fas fa-edit"></i></button><button onclick="deleteTransaction('${a.id}')" class="text-red-500 p-1.5 bg-slate-800 rounded hover:bg-slate-700 transition-all"><i class="fas fa-trash"></i></button></div></div>`).join('');
         }
 
         function editTransaction(id) { 
@@ -524,7 +546,7 @@
         }
         
         function deleteTransaction(id) { 
-            if(!confirm("Bu finansal kaydı silmek istediğinize emin misiniz?")) return; 
+            if(!confirm("Bu kaydı silmek istediğinize emin misiniz?")) return; 
             appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id)); 
             filterHistory(); 
             renderAccounting(); 
@@ -576,14 +598,15 @@
             appState.charts.reading = new Chart(document.getElementById('chart-reading'), { type: 'line', data: { labels: p.map((_,i)=>i+1), datasets:[{label:'Kelime', data:p.map(l=>l.words||0), borderColor:'#a855f7'}, {label:'% Anlama', data:p.map(l=>l.comprehension||0), borderColor:'#22c55e'}] }, options: { maintainAspectRatio:false } });
         }
 
-        // --- MEDIA OPS ---
+        // --- MEDIA ---
         async function compressImg(b64, w = 150) { return new Promise(r => { const i = new Image(); i.src = b64; i.onload = () => { const c = document.createElement('canvas'); const s = w/i.width; c.width = w; c.height = i.height*s; const ctx = c.getContext('2d'); ctx.drawImage(i,0,0,c.width,c.height); r(c.toDataURL('image/jpeg', 0.5)); }; }); }
         async function handleStudentPhoto(ev) { const f = ev.target.files[0]; if(!f) return; const rd = new FileReader(); rd.onload = async (e) => { const opt = await compressImg(e.target.result, 120); tempStudentPhoto = opt; document.getElementById('student-photo-preview').innerHTML = `<img src="${opt}" class="w-full h-full object-cover">`; }; rd.readAsDataURL(f); }
         async function handleLessonMedia(ev) { const fs = ev.target.files; const pr = document.getElementById('lesson-media-preview'); for(let f of fs) { const rd = new FileReader(); rd.onload = async (e) => { let d = e.target.result; if(f.type.startsWith('image/')) d = await compressImg(d, 200); tempLessonMedia.push({data:d, type:f.type}); const el = document.createElement('div'); el.innerHTML = `<img src="${d}" class="media-preview">`; pr.appendChild(el); }; rd.readAsDataURL(f); } }
 
-        // --- PDF & OTHER ---
+        // --- EXPORTS & NAVIGATION ---
         async function exportFullCalendarPDF() { html2canvas(document.getElementById('calendar-grid')).then(canvas => { const pdf = new jspdf.jsPDF('l', 'mm', 'a4'); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 277, 150); pdf.save('Haftalik_Program.pdf'); }); }
         function exportSingleLessonPDF() { alert("Hazırlanıyor..."); }
+
         window.onload = fetchData;
     </script>
 </body>

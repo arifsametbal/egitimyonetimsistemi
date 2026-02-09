@@ -31,7 +31,7 @@
 
     <div id="loader" class="loading-overlay">
         <i class="fas fa-circle-notch animate-spin text-4xl text-blue-500 mb-4"></i>
-        <p class="text-sm font-medium">Veriler Eşitleniyor...</p>
+        <p class="text-sm font-medium" id="loader-text">Veriler Eşitleniyor...</p>
     </div>
 
     <!-- Üst Navigasyon -->
@@ -50,7 +50,7 @@
         </div>
     </nav>
 
-    <!-- Ana İçerik Alanı -->
+    <!-- Ana İçerik -->
     <main class="container mx-auto p-4 max-w-6xl">
         <!-- TAKVİM BÖLÜMÜ -->
         <section id="section-calendar" class="tab-content">
@@ -101,12 +101,10 @@
                     <i class="fas fa-chart-pie mr-2"></i>Gelişim Raporu (PDF)
                 </button>
             </div>
-            
             <div id="stats-empty-state" class="text-center py-20 text-slate-500">
                 <i class="fas fa-chart-line text-5xl mb-4"></i>
                 <p>İstatistikleri görüntülemek için lütfen bir öğrenci seçin.</p>
             </div>
-
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
                 <div class="glass-card p-4 rounded-xl md:col-span-2">
                     <h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Gelişimi (%)</h3>
@@ -133,14 +131,22 @@
 
         <!-- MUHASEBE BÖLÜMÜ -->
         <section id="section-accounting" class="tab-content hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-center">
-                <div class="glass-card p-4 rounded-xl border-t-4 border-red-500">
-                    <p class="text-[10px] text-slate-400 uppercase">Toplam Kalan Bakiye</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 text-center">
+                <div class="glass-card p-4 rounded-xl border-t-4 border-blue-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Ders Borcu</p>
                     <h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-orange-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Harcama</p>
+                    <h4 id="acc-total-expense" class="text-lg font-bold">₺0</h4>
                 </div>
                 <div class="glass-card p-4 rounded-xl border-t-4 border-green-500">
                     <p class="text-[10px] text-slate-400 uppercase">Toplam Tahsilat</p>
                     <h4 id="acc-total-paid" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-purple-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Net Bakiye</p>
+                    <h4 id="acc-balance" class="text-lg font-bold">₺0</h4>
                 </div>
             </div>
 
@@ -151,7 +157,7 @@
                 </div>
                 <div class="flex gap-2">
                     <input type="text" placeholder="Tabloda ara..." class="text-sm px-3" onkeyup="renderAccounting(this.value)">
-                    <button onclick="exportAccountingPDF()" class="bg-slate-700 px-4 py-2 rounded text-sm"><i class="fas fa-print"></i></button>
+                    <button onclick="exportAccountingPDF_Standard()" class="bg-slate-700 px-4 py-2 rounded text-sm"><i class="fas fa-print"></i></button>
                 </div>
             </div>
 
@@ -160,11 +166,11 @@
                     <thead>
                         <tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400">
                             <th class="p-4">Öğrenci</th>
-                            <th class="p-4">Ders Sayısı</th>
+                            <th class="p-4 text-center">Ders</th>
                             <th class="p-4">Ders Borcu</th>
                             <th class="p-4">Harcamalar</th>
                             <th class="p-4">Ödenen</th>
-                            <th class="p-4">Kalan Bakiye</th>
+                            <th class="p-4 font-bold text-white">Kalan Bakiye</th>
                             <th class="p-4 text-center">Detay</th>
                         </tr>
                     </thead>
@@ -174,15 +180,7 @@
         </section>
     </main>
 
-    <!-- Mobil Navigasyon -->
-    <div class="fixed bottom-0 left-0 right-0 md:hidden glass-card flex justify-around p-3 z-50">
-        <button onclick="switchTab('calendar')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-calendar"><i class="fas fa-calendar-alt text-lg"></i><span>Takvim</span></button>
-        <button onclick="switchTab('students')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-students"><i class="fas fa-users text-lg"></i><span>Öğrenciler</span></button>
-        <button onclick="switchTab('stats')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-stats"><i class="fas fa-chart-bar text-lg"></i><span>İstatistik</span></button>
-        <button onclick="switchTab('accounting')" class="flex flex-col items-center text-xs text-slate-400" id="m-nav-accounting"><i class="fas fa-wallet text-lg"></i><span>Muhasebe</span></button>
-    </div>
-
-    <!-- Modallar -->
+    <!-- MODALLAR -->
     <!-- Ders Modalı -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
@@ -262,41 +260,16 @@
         </div>
     </div>
 
-    <!-- Muhasebe Geçmişi Modalı -->
+    <!-- İşlem Geçmişi Modalı -->
     <div id="acc-history-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl rounded-2xl p-6 relative max-h-[80vh] overflow-hidden flex flex-col">
             <button onclick="closeModal('acc-history-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
             <h2 id="acc-history-title" class="text-xl font-bold mb-4">İşlem Geçmişi</h2>
             <div class="relative mb-4">
                 <i class="fas fa-search absolute left-3 top-3 text-slate-500 text-xs"></i>
-                <input type="text" id="history-search-input" placeholder="Tarih, tutar veya açıklama ile ara..." class="w-full pl-9 text-xs" onkeyup="filterHistory()">
+                <input type="text" id="history-search-input" placeholder="Arama yapın..." class="w-full pl-9 text-xs" onkeyup="filterHistory()">
             </div>
             <div id="acc-history-list" class="space-y-3 overflow-y-auto flex-1 pr-2"></div>
-        </div>
-    </div>
-
-    <!-- İşlem Girişi Modalı -->
-    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
-            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
-            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">Finansal Veri Girişi</h2>
-            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
-                <input type="hidden" id="transaction-id">
-                <input type="hidden" id="transaction-type">
-                <div>
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İlgili Öğrenci</label>
-                    <select id="transaction-student" class="w-full" required></select>
-                </div>
-                <div>
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Tutarı (₺)</label>
-                    <input type="number" id="transaction-amount" class="w-full" required>
-                </div>
-                <div>
-                    <label class="block text-xs mb-1 text-slate-500 uppercase">İşlem Açıklaması</label>
-                    <input type="text" id="transaction-desc" class="w-full" required>
-                </div>
-                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4 shadow-lg shadow-blue-500/20">Hareketi Kaydet</button>
-            </form>
         </div>
     </div>
 
@@ -308,10 +281,10 @@
             <form id="student-form" class="space-y-4" onsubmit="saveStudent(event)">
                 <input type="hidden" id="student-id">
                 <div class="flex flex-col items-center mb-4">
-                    <div id="student-photo-preview" class="w-24 h-24 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center mb-2 overflow-hidden">
+                    <div id="student-photo-preview" class="w-24 h-24 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden">
                         <i class="fas fa-user text-3xl text-slate-600"></i>
                     </div>
-                    <input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48" onchange="handleStudentPhoto(event)">
+                    <input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48 mt-2" onchange="handleStudentPhoto(event)">
                 </div>
                 <div>
                     <label class="block text-xs mb-1 text-slate-500 uppercase">Tam Adı</label>
@@ -319,13 +292,13 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs mb-1 text-slate-500 uppercase">Eğitim Seviyesi</label>
+                        <label class="block text-xs mb-1 text-slate-500 uppercase">Sınıf</label>
                         <select id="student-grade" class="w-full">
                             <option value="1">1. Sınıf</option><option value="2">2. Sınıf</option><option value="3">3. Sınıf</option><option value="4">4. Sınıf</option><option value="5">5. Sınıf</option><option value="6">6. Sınıf</option><option value="7">7. Sınıf</option><option value="8">8. Sınıf</option><option value="9">9. Sınıf</option><option value="10">10. Sınıf</option><option value="11">11. Sınıf</option><option value="12">12. Sınıf</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs mb-1 text-slate-500 uppercase">Birim Ders Ücreti (₺)</label>
+                        <label class="block text-xs mb-1 text-slate-500 uppercase">Birim Ücret (₺)</label>
                         <input type="number" id="student-price" class="w-full" required>
                     </div>
                 </div>
@@ -334,10 +307,35 @@
                     <textarea id="student-notes" class="w-full h-24"></textarea>
                 </div>
                 <div id="price-log-container" class="hidden bg-slate-800/50 p-3 rounded-lg mt-4">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase mb-2">Fiyat Revizyon Geçmişi</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase mb-2">Ücret Geçmişi</p>
                     <ul id="price-log-list" class="text-[10px] text-slate-400 space-y-1"></ul>
                 </div>
-                <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold mt-4">Kayıt İşlemini Tamamla</button>
+                <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold mt-4">Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- İşlem Modalı -->
+    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
+            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">İşlem Girişi</h2>
+            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
+                <input type="hidden" id="transaction-id">
+                <input type="hidden" id="transaction-type">
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">Öğrenci</label>
+                    <select id="transaction-student" class="w-full" required></select>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">Tutar (₺)</label>
+                    <input type="number" id="transaction-amount" class="w-full" required>
+                </div>
+                <div>
+                    <label class="block text-xs mb-1 text-slate-500 uppercase">Açıklama</label>
+                    <input type="text" id="transaction-desc" class="w-full" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4">Kaydet</button>
             </form>
         </div>
     </div>
@@ -360,6 +358,60 @@
         let tempLessonMedia = [];
         let currentHistoryStudentId = null;
 
+        // --- CORE FUNCTIONS ---
+        async function fetchData() {
+            if(!API_URL) return;
+            try {
+                const response = await fetch(API_URL);
+                const rawData = await response.text();
+                const data = JSON.parse(rawData);
+                if(data && typeof data === 'object') appState = {...appState, ...data};
+                document.getElementById('loader').classList.add('hidden');
+                updateStatsSelect();
+                initCalendar();
+                renderStudents();
+            } catch(e) {
+                console.error("Fetch hatası:", e);
+                document.getElementById('loader').classList.add('hidden');
+                initCalendar();
+            }
+        }
+
+        async function saveToCloud() {
+            if(!API_URL) return;
+            document.getElementById('sync-status').innerHTML = '<i class="fas fa-sync-alt animate-spin text-blue-400 mr-1"></i> Kaydediliyor...';
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(appState)
+                });
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> Senkronize';
+            } catch(e) {
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> Kayıt Hatası';
+            }
+        }
+
+        function updateStatsSelect() { 
+            const select = document.getElementById('stats-student-select'); 
+            if (select) {
+                select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + 
+                    appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            }
+        }
+
+        function getWeekId() {
+            const today = new Date();
+            const dayNum = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (dayNum === 0 ? 6 : dayNum - 1) + (appState.currentWeekOffset * 7));
+            monday.setHours(0,0,0,0);
+            const y = monday.getFullYear();
+            const m = String(monday.getMonth() + 1).padStart(2, '0');
+            const d = String(monday.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
         // --- IMAGE OPTIMIZER ---
         async function compressImage(base64Str, maxWidth = 200) {
             return new Promise((resolve) => {
@@ -378,7 +430,7 @@
             });
         }
 
-        // --- MEDIA HANDLERS ---
+        // --- HANDLERS ---
         async function handleStudentPhoto(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -401,96 +453,34 @@
                     if (file.type.startsWith('image/')) data = await compressImage(data, 300);
                     tempLessonMedia.push({ data, type: file.type });
                     const el = document.createElement('div');
-                    el.className = "relative group";
-                    if (file.type.startsWith('video/')) el.innerHTML = `<video src="${data}" class="media-preview"></video>`;
-                    else el.innerHTML = `<img src="${data}" class="media-preview">`;
+                    el.className = "relative";
+                    el.innerHTML = file.type.startsWith('video/') ? `<video src="${data}" class="media-preview"></video>` : `<img src="${data}" class="media-preview">`;
                     preview.appendChild(el);
                 };
                 reader.readAsDataURL(file);
             }
         }
 
-        // --- CORE FUNCTIONS ---
-        function getWeekId() {
-            const today = new Date();
-            const first = new Date(today);
-            const dayNum = today.getDay();
-            const diff = today.getDate() - dayNum + (dayNum === 0 ? -6 : 1) + (appState.currentWeekOffset * 7);
-            first.setDate(diff);
-            first.setHours(0,0,0,0);
-            return first.toISOString().split('T')[0];
-        }
-
-        async function fetchData() {
-            if(!API_URL) return;
-            try {
-                const response = await fetch(API_URL);
-                const rawData = await response.text();
-                const data = JSON.parse(rawData);
-                if(data && typeof data === 'object') appState = {...appState, ...data};
-                document.getElementById('loader').classList.add('hidden');
-                
-                const branchSelect = document.getElementById('stats-branch-select');
-                if(branchSelect) {
-                    branchSelect.innerHTML = '<option value="ALL">Tüm Branşlar (Öğrenci Ortalaması)</option>';
-                    appState.branches.forEach(b => branchSelect.innerHTML += `<option value="${b}">${b}</option>`);
-                }
-                updateStatsSelect();
-                initCalendar();
-                renderStudents();
-            } catch(e) {
-                console.error("Fetch hatası:", e);
-                document.getElementById('loader').classList.add('hidden');
-                initCalendar();
-            }
-        }
-
-        async function saveToCloud() {
-            if(!API_URL) return;
-            document.getElementById('sync-status').innerHTML = '<i class="fas fa-sync-alt animate-spin text-blue-400 mr-1"></i> Kaydediliyor...';
-            try {
-                const payload = JSON.stringify(appState);
-                await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: payload
-                });
-                document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> Senkronize';
-            } catch(e) {
-                document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> Kayıt Hatası';
-            }
-        }
-
+        // --- UI LOGIC ---
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`section-${tabId}`).classList.remove('hidden');
             document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('tab-active'));
             document.getElementById(`nav-${tabId}`)?.classList.add('tab-active');
-            document.querySelectorAll('[id^="m-nav-"]').forEach(el => el.classList.replace('text-blue-400', 'text-slate-400'));
-            document.getElementById(`m-nav-${tabId}`)?.classList.replace('text-slate-400', 'text-blue-400');
             if(tabId === 'stats') initStats();
             if(tabId === 'students') renderStudents();
             if(tabId === 'accounting') renderAccounting();
         }
 
-        // --- TAKVİM ---
         function initCalendar() {
             const grid = document.getElementById('calendar-grid');
-            if(!grid) return;
-            grid.innerHTML = '';
+            if(!grid) return; grid.innerHTML = '';
             const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
             updateCalendarRange();
             days.forEach((day, index) => {
                 const dayEl = document.createElement('div');
                 dayEl.className = 'glass-card p-3 rounded-xl min-h-[300px] flex flex-col';
-                dayEl.innerHTML = `
-                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
-                        <span class="font-bold text-xs text-blue-400 uppercase tracking-tighter">${day}</span>
-                    </div>
-                    <div id="day-lessons-${index}" class="flex-1 space-y-2"></div>
-                    <button onclick="openLessonModal(${index})" class="mt-4 w-full py-2 border border-dashed border-slate-600 rounded-lg text-[9px] hover:bg-slate-800 text-slate-500 font-bold uppercase">Yeni Ders</button>
-                `;
+                dayEl.innerHTML = `<div class="mb-3 pb-2 border-b border-slate-700 font-bold text-xs text-blue-400 uppercase">${day}</div><div id="day-lessons-${index}" class="flex-1 space-y-2"></div><button onclick="openLessonModal(${index})" class="mt-4 w-full py-2 border border-dashed border-slate-600 rounded-lg text-[9px] hover:bg-slate-800 text-slate-500 font-bold">YENİ DERS</button>`;
                 grid.appendChild(dayEl);
             });
             renderAllLessons();
@@ -498,37 +488,16 @@
 
         function updateCalendarRange() {
             const today = new Date();
-            const first = new Date(today);
             const dayNum = today.getDay();
-            const diff = today.getDate() - dayNum + (dayNum === 0 ? -6 : 1) + (appState.currentWeekOffset * 7);
-            first.setDate(diff);
-            const last = new Date(first); last.setDate(first.getDate() + 6);
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (dayNum === 0 ? 6 : dayNum - 1) + (appState.currentWeekOffset * 7));
+            const last = new Date(monday); last.setDate(monday.getDate() + 6);
             const opt = { day: 'numeric', month: 'long' };
-            const rangeText = document.getElementById('calendar-date-range');
-            if (rangeText) rangeText.innerText = `${first.toLocaleDateString('tr-TR', opt)} - ${last.toLocaleDateString('tr-TR', opt)} ${last.getFullYear()}`;
+            document.getElementById('calendar-date-range').innerText = `${monday.toLocaleDateString('tr-TR', opt)} - ${last.toLocaleDateString('tr-TR', opt)} ${last.getFullYear()}`;
         }
 
         function changeWeek(off) { appState.currentWeekOffset += off; initCalendar(); }
-
-        function jumpToWeek(v) {
-            if(!v) return;
-            const parts = v.split('-W');
-            const year = parseInt(parts[0]);
-            const week = parseInt(parts[1]);
-            const selectedDate = new Date(year, 0, 1 + (week - 1) * 7);
-            const day = selectedDate.getDay();
-            const diff = selectedDate.getDate() - day + (day === 0 ? -6 : 1);
-            selectedDate.setDate(diff);
-            const now = new Date();
-            const nowDay = now.getDay();
-            const nowDiff = now.getDate() - nowDay + (nowDay === 0 ? -6 : 1);
-            const currentWeekStart = new Date(now);
-            currentWeekStart.setDate(nowDiff);
-            currentWeekStart.setHours(0,0,0,0);
-            const diffTime = selectedDate.getTime() - currentWeekStart.getTime();
-            appState.currentWeekOffset = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000));
-            initCalendar();
-        }
+        function jumpToWeek(v) { if(!v) return; const parts = v.split('-W'); const year = parseInt(parts[0]); const week = parseInt(parts[1]); const sel = new Date(year, 0, 1 + (week - 1) * 7); const now = new Date(); now.setHours(0,0,0,0); const diff = Math.round((sel - now) / (7 * 24 * 60 * 60 * 1000)); appState.currentWeekOffset = Math.floor(diff / 7); initCalendar(); }
 
         function renderAllLessons() {
             const currentWeekId = getWeekId();
@@ -540,13 +509,7 @@
                     const node = document.createElement('div');
                     node.className = `lesson-node p-2 rounded-lg text-[10px] ${l.attendance ? 'attendance-true' : 'attendance-false'}`;
                     node.onclick = () => openLessonModal(l.day, l.id);
-                    node.innerHTML = `
-                        <div class="font-bold truncate flex justify-between">
-                            <span>${l.time}</span>
-                            <span class="text-[9px] opacity-70">${getStudentName(l.studentId)}</span>
-                        </div>
-                        <div class="text-[9px] text-slate-400 mt-1 truncate">${(l.selectedBranches || []).join(', ')}</div>
-                    `;
+                    node.innerHTML = `<div class="font-bold truncate">${l.time} - ${getStudentName(l.studentId)}</div><div class="text-[9px] text-slate-400 mt-1 truncate">${(l.selectedBranches || []).join(', ')}</div>`;
                     container.appendChild(node);
                 }
             });
@@ -586,9 +549,7 @@
                         tempLessonMedia = [...l.media];
                         l.media.forEach(m => {
                             const el = document.createElement('div');
-                            el.className = "relative group";
-                            if (m.type.startsWith('video/')) el.innerHTML = `<video src="${m.data}" class="media-preview"></video>`;
-                            else el.innerHTML = `<img src="${m.data}" class="media-preview">`;
+                            el.innerHTML = m.type.startsWith('video/') ? `<video src="${m.data}" class="media-preview"></video>` : `<img src="${m.data}" class="media-preview">`;
                             document.getElementById('lesson-media-preview').appendChild(el);
                         });
                     }
@@ -597,53 +558,121 @@
             modal.classList.remove('hidden');
         }
 
-        function toggleBranchChip(el) { el.classList.toggle('active'); }
-
         function addTestRow(data = null) {
             const container = document.getElementById('test-rows-container');
             const row = document.createElement('div');
             row.className = 'grid grid-cols-6 gap-2 items-center';
-            row.innerHTML = `
-                <select class="text-[10px] col-span-2 py-1">
-                    ${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
-                </select>
-                <input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}">
-                <input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}">
-                <input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}">
-                <input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}">
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>
-            `;
+            row.innerHTML = `<select class="text-[10px] col-span-2 py-1">${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}</select><input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}"><input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}"><input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}"><input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}"><button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>`;
             container.appendChild(row);
         }
 
-        function saveLesson(e) {
-            e.preventDefault();
-            try {
-                const id = document.getElementById('lesson-id').value;
-                const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
-                const tests = [];
-                Array.from(document.getElementById('test-rows-container').children).forEach(row => {
-                    const inputs = row.querySelectorAll('input');
-                    tests.push({ branch: row.querySelector('select').value, q: parseInt(inputs[0].value || 0), d: parseInt(inputs[1].value || 0), w: parseInt(inputs[2].value || 0), e: parseInt(inputs[3].value || 0) });
-                });
-                const studentId = document.getElementById('lesson-student').value;
-                const lesson = { id: id ? id : Date.now().toString(), weekId: getWeekId(), studentId: studentId, day: parseInt(document.getElementById('lesson-day').value), time: document.getElementById('lesson-time').value, attendance: document.getElementById('lesson-attendance').checked, selectedBranches: branches, tests: tests, media: tempLessonMedia, words: document.getElementById('l-words').value, comprehension: document.getElementById('l-comp').value, mood: document.querySelector('input[name="mood"]:checked')?.value || null, notes: document.getElementById('lesson-notes').value, reminders: document.getElementById('lesson-reminders').value, unitPrice: getStudentPrice(studentId) };
-                if(id) {
-                    const idx = appState.lessons.findIndex(x => String(x.id) === String(id));
-                    if (idx !== -1) appState.lessons[idx] = lesson;
-                } else appState.lessons.push(lesson);
-                closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
-            } catch (err) { console.error("Hata:", err); }
+        function saveLesson(event) {
+            event.preventDefault();
+            const id = document.getElementById('lesson-id').value;
+            const branches = [...document.querySelectorAll('.branch-chip.active')].map(c => c.innerText);
+            const tests = Array.from(document.getElementById('test-rows-container').children).map(row => {
+                const inputs = row.querySelectorAll('input');
+                return { branch: row.querySelector('select').value, q: parseInt(inputs[0].value || 0), d: parseInt(inputs[1].value || 0), w: parseInt(inputs[2].value || 0), e: parseInt(inputs[3].value || 0) };
+            });
+            const lesson = { id: id || Date.now().toString(), weekId: getWeekId(), studentId: document.getElementById('lesson-student').value, day: parseInt(document.getElementById('lesson-day').value), time: document.getElementById('lesson-time').value, attendance: document.getElementById('lesson-attendance').checked, selectedBranches: branches, tests, media: tempLessonMedia, words: document.getElementById('l-words').value, comprehension: document.getElementById('l-comp').value, mood: document.querySelector('input[name="mood"]:checked')?.value || null, notes: document.getElementById('lesson-notes').value, reminders: document.getElementById('lesson-reminders').value, unitPrice: getStudentPrice(document.getElementById('lesson-student').value) };
+            if(id) {
+                const idx = appState.lessons.findIndex(x => String(x.id) === String(id));
+                if (idx !== -1) appState.lessons[idx] = lesson;
+            } else appState.lessons.push(lesson);
+            closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
         }
 
         function deleteCurrentLesson() {
             const id = document.getElementById('lesson-id').value;
-            if(!id || !confirm("Dersi silmek istediğinize emin misiniz?")) return;
+            if(!id || !confirm("Emin misiniz?")) return;
             appState.lessons = appState.lessons.filter(l => String(l.id) !== String(id));
             closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
         }
 
-        // --- İSTATİSTİK ---
+        function toggleBranchChip(el) { el.classList.toggle('active'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // --- STUDENT & ACCOUNTING ---
+        function saveStudent(e) {
+            e.preventDefault();
+            const id = document.getElementById('student-id').value;
+            const price = parseFloat(document.getElementById('student-price').value);
+            const data = { id: id || Date.now().toString(), photo: tempStudentPhoto, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price, notes: document.getElementById('student-notes').value };
+            if(id) {
+                const idx = appState.students.findIndex(x => String(x.id) === String(id));
+                if(appState.students[idx].price !== price) appState.priceLogs.push({ studentId: id, old: appState.students[idx].price, new: price, date: new Date().toLocaleString() });
+                appState.students[idx] = data;
+            } else appState.students.push(data);
+            closeModal('student-modal'); renderStudents(); updateStatsSelect(); saveToCloud();
+        }
+
+        function renderStudents() {
+            const list = document.getElementById('student-list');
+            if(!list) return; list.innerHTML = '';
+            appState.students.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'glass-card p-4 rounded-xl flex gap-3 border-l-4 border-blue-500';
+                card.innerHTML = `<div class="w-16 h-16 rounded bg-slate-800 overflow-hidden">${s.photo ? `<img src="${s.photo}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-slate-600"><i class="fas fa-user"></i></div>`}</div><div class="flex-1"><div class="flex justify-between"><span>${s.grade}. Sınıf</span><div><button onclick="openStudentModal('${s.id}')" class="text-blue-400 mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteStudent('${s.id}')" class="text-red-400"><i class="fas fa-trash"></i></button></div></div><h3 class="font-bold">${s.name}</h3><p class="text-green-500">₺${s.price}</p></div>`;
+                list.appendChild(card);
+            });
+        }
+
+        function deleteStudent(id) {
+            if(!confirm("Emin misiniz?")) return;
+            appState.students = appState.students.filter(s => String(s.id) !== String(id));
+            appState.lessons = appState.lessons.filter(l => String(l.studentId) !== String(id));
+            appState.accounting = appState.accounting.filter(a => String(a.studentId) !== String(id));
+            renderStudents(); updateStatsSelect(); saveToCloud();
+        }
+
+        function renderAccounting(q = "") {
+            const body = document.getElementById('accounting-table-body');
+            if(!body) return; body.innerHTML = '';
+            let tD = 0, tP = 0, tE = 0;
+            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+                const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
+                const lDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
+                const eExp = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
+                const paid = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
+                const bal = (lDebt + eExp) - paid;
+                tD += lDebt; tP += paid; tE += eExp;
+                body.innerHTML += `<tr class="border-b border-slate-800 hover:bg-slate-800/20"><td class="p-4">${s.name}</td><td class="p-4 text-center">${lessons.length}</td><td class="p-4 text-blue-400">₺${lDebt}</td><td class="p-4 text-orange-400">₺${eExp}</td><td class="p-4 text-green-500">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-500'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history"></i></button></td></tr>`;
+            });
+            document.getElementById('acc-total-debt').innerText = `₺${tD + tE - tP}`;
+            document.getElementById('acc-total-paid').innerText = `₺${tP}`;
+            document.getElementById('acc-total-expense').innerText = `₺${tE}`;
+            document.getElementById('acc-balance').innerText = `₺${tD + tE - tP}`;
+        }
+
+        function viewHistory(id) { currentHistoryStudentId = id; document.getElementById('acc-history-modal').classList.remove('hidden'); filterHistory(); }
+        function filterHistory() {
+            const query = document.getElementById('history-search-input').value.toLowerCase();
+            const filtered = appState.accounting.filter(a => String(a.studentId) === String(currentHistoryStudentId)).filter(a => a.desc.toLowerCase().includes(query) || a.date.toLowerCase().includes(query));
+            document.getElementById('acc-history-list').innerHTML = filtered.map(a => `<div class="flex justify-between p-3 glass-card rounded border-l-4 ${a.type === 'payment' ? 'border-green-500' : 'border-orange-500'}"><div><p class="font-bold">${a.desc}</p><p class="text-[10px]">${a.date}</p></div><div class="flex items-center gap-2"><span>₺${a.amount}</span><button onclick="deleteTransaction('${a.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></div></div>`).join('');
+        }
+
+        function deleteTransaction(id) {
+            if(!confirm("Silinsin mi?")) return;
+            appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id));
+            filterHistory(); renderAccounting(); saveToCloud();
+        }
+
+        function openTransactionModal(type) {
+            const m = document.getElementById('transaction-modal');
+            document.getElementById('transaction-form').reset();
+            document.getElementById('transaction-id').value = "";
+            document.getElementById('transaction-type').value = type;
+            document.getElementById('transaction-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            m.classList.remove('hidden');
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            appState.accounting.push({ id: Date.now().toString(), type: document.getElementById('transaction-type').value, studentId: document.getElementById('transaction-student').value, amount: parseFloat(document.getElementById('transaction-amount').value), desc: document.getElementById('transaction-desc').value, date: new Date().toLocaleString() });
+            closeModal('transaction-modal'); renderAccounting(); saveToCloud();
+        }
+
+        // --- STATS ---
         function loadStudentStats(id) {
             const container = document.getElementById('stats-container');
             const emptyState = document.getElementById('stats-empty-state');
@@ -654,270 +683,38 @@
         function initStats() {
             const charts = ['mood', 'subjectsSuccess', 'performance', 'reading', 'branchCount'];
             charts.forEach(c => { if(appState.charts[c]) appState.charts[c].destroy(); });
-            const studentId = document.getElementById('stats-student-select').value;
-            if(!studentId) return;
-            const selectedBranch = document.getElementById('stats-branch-select').value;
-            const dataPool = appState.lessons.filter(l => String(l.studentId) === String(studentId));
-            const branchCounts = {}; appState.branches.forEach(b => branchCounts[b] = 0);
-            dataPool.forEach(l => (l.selectedBranches || []).forEach(b => { if(branchCounts[b] !== undefined) branchCounts[b]++; }));
-            const bCCtx = document.getElementById('chart-branch-count');
-            if(bCCtx) appState.charts.branchCount = new Chart(bCCtx, { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'Ders Sayısı', data: appState.branches.map(b=>branchCounts[b]), backgroundColor:'#a855f7' }] }, options: { maintainAspectRatio:false } });
+            const sId = document.getElementById('stats-student-select').value;
+            if(!sId) return;
+            const dataPool = appState.lessons.filter(l => String(l.studentId) === String(sId));
+            
+            // Mood
             const moods = [0,0,0,0,0]; dataPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
-            const moodCtx = document.getElementById('chart-mood');
-            if (moodCtx) appState.charts.mood = new Chart(moodCtx, { type: 'doughnut', data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] }, options: { maintainAspectRatio:false } });
-            const branchStats = {}; appState.branches.forEach(b => branchStats[b] = { total: 0, correct: 0 });
-            dataPool.forEach(l => (l.tests || []).forEach(t => { if (branchStats[t.branch]) { branchStats[t.branch].total += t.q || 0; branchStats[t.branch].correct += t.d || 0; } }));
-            const successCtx = document.getElementById('chart-subjects-success');
-            if (successCtx) appState.charts.subjectsSuccess = new Chart(successCtx, { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'% Başarı', data: appState.branches.map(b => branchStats[b].total > 0 ? ((branchStats[b].correct / branchStats[b].total) * 100).toFixed(1) : 0), backgroundColor:'#3b82f6' }] }, options: { maintainAspectRatio:false, scales:{y:{min:0, max:100}} } });
-            const testHistory = [];
-            dataPool.forEach(l => (l.tests || []).forEach(t => { testHistory.push({ branch: t.branch, rate: t.q > 0 ? (t.d / t.q) * 100 : 0, date: l.id }); }));
-            let filteredHistory = [];
-            if (selectedBranch === "ALL") {
-                const grouped = {}; testHistory.forEach(th => { if(!grouped[th.date]) grouped[th.date] = { sum: 0, count: 0 }; grouped[th.date].sum += th.rate; grouped[th.date].count++; });
-                filteredHistory = Object.keys(grouped).sort().map(key => grouped[key].sum / grouped[key].count);
-            } else filteredHistory = testHistory.filter(th => th.branch === selectedBranch).map(th => th.rate);
-            const perfCtx = document.getElementById('chart-test-performance');
-            if (perfCtx) appState.charts.performance = new Chart(perfCtx, { type: 'line', data: { labels: filteredHistory.map((_,i)=>i+1), datasets:[{ label: '% Başarı', data: filteredHistory, borderColor: '#3b82f6', fill:true, tension:0.4 }] }, options: { maintainAspectRatio:false, scales:{y:{min:0, max:100}} } });
-            const pool = dataPool.filter(l => l.words || l.comprehension).slice(-10);
-            const readCtx = document.getElementById('chart-reading');
-            if (readCtx) appState.charts.reading = new Chart(readCtx, { type: 'line', data: { labels: pool.map((_,i)=>i+1), datasets:[{label:'Kelime', data:pool.map(l=>l.words||0), borderColor:'#a855f7'}, {label:'% Anlama', data:pool.map(l=>l.comprehension||0), borderColor:'#22c55e'}] }, options: { maintainAspectRatio:false } });
+            appState.charts.mood = new Chart(document.getElementById('chart-mood'), { type: 'doughnut', data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] }, options: { maintainAspectRatio:false } });
+
+            // Branch count
+            const bcCounts = {}; appState.branches.forEach(b => bcCounts[b] = 0);
+            dataPool.forEach(l => (l.selectedBranches || []).forEach(b => bcCounts[b]++));
+            appState.charts.branchCount = new Chart(document.getElementById('chart-branch-count'), { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'Ders', data: appState.branches.map(b=>bcCounts[b]), backgroundColor:'#a855f7' }] }, options: { maintainAspectRatio:false } });
+
+            // Success
+            const brS = {}; appState.branches.forEach(b => brS[b] = { t:0, c:0 });
+            dataPool.forEach(l => (l.tests || []).forEach(t => { if(brS[t.branch]) { brS[t.branch].t += t.q; brS[t.branch].c += t.d; } }));
+            appState.charts.subjectsSuccess = new Chart(document.getElementById('chart-subjects-success'), { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'% Başarı', data: appState.branches.map(b => brS[b].t > 0 ? (brS[b].c/brS[b].t)*100 : 0), backgroundColor:'#3b82f6' }] }, options: { maintainAspectRatio:false, scales:{y:{min:0,max:100}} } });
+
+            // Performance (Line Chart for success over time)
+            const testHistory = []; dataPool.forEach(l => (l.tests || []).forEach(t => testHistory.push({ r: t.q > 0 ? (t.d/t.q)*100 : 0 })));
+            appState.charts.performance = new Chart(document.getElementById('chart-test-performance'), { type: 'line', data: { labels: testHistory.map((_,i)=>i+1), datasets:[{label:'% Başarı', data:testHistory.map(x=>x.r), borderColor:'#3b82f6', tension:0.4}] }, options: { maintainAspectRatio:false, scales:{y:{min:0,max:100}} } });
+
+            // Reading
+            const p = dataPool.filter(l => l.words || l.comprehension).slice(-10);
+            appState.charts.reading = new Chart(document.getElementById('chart-reading'), { type: 'line', data: { labels: p.map((_,i)=>i+1), datasets:[{label:'Kelime', data:p.map(l=>l.words||0), borderColor:'#a855f7'}, {label:'% Anlama', data:p.map(l=>l.comprehension||0), borderColor:'#22c55e'}] }, options: { maintainAspectRatio:false } });
         }
 
-        // --- MUHASEBE ---
-        function renderAccounting(q = "") {
-            const body = document.getElementById('accounting-table-body');
-            if (!body) return; body.innerHTML = '';
-            let tD = 0, tP = 0, tE = 0, tL = 0;
-            const studentsToRender = appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
-            
-            studentsToRender.forEach(s => {
-                const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
-                const lessonDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
-                const extraExpenses = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
-                const paid = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
-                const bal = (lessonDebt + extraExpenses) - paid;
-                tD += lessonDebt; tP += paid; tE += extraExpenses; tL += lessons.length;
-                const row = document.createElement('tr');
-                row.className = 'border-b border-slate-800 hover:bg-slate-800/20';
-                row.innerHTML = `<td class="p-4 font-bold">${s.name}</td><td class="p-4">${lessons.length}</td><td class="p-4 text-blue-400">₺${lessonDebt}</td><td class="p-4 text-orange-400">₺${extraExpenses}</td><td class="p-4 text-green-500 font-bold">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-500'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history text-slate-400"></i></button></td>`;
-                body.appendChild(row);
-            });
-
-            if (studentsToRender.length > 0) {
-                const totalRow = document.createElement('tr');
-                totalRow.className = 'bg-slate-800 font-bold border-t-2 border-slate-700';
-                totalRow.innerHTML = `<td class="p-4 uppercase">GENEL TOPLAM</td><td class="p-4">${tL}</td><td class="p-4 text-blue-400">₺${tD}</td><td class="p-4 text-orange-400">₺${tE}</td><td class="p-4 text-green-500">₺${tP}</td><td class="p-4 ${ (tD + tE - tP) > 0 ? 'text-red-500' : 'text-blue-500' }">₺${tD + tE - tP}</td><td class="p-4"></td>`;
-                body.appendChild(totalRow);
-            }
-            // Toplam Kalan Bakiye
-            document.getElementById('acc-total-debt').innerText = `₺${tD + tE - tP}`;
-            document.getElementById('acc-total-paid').innerText = `₺${tP}`;
-        }
-
-        // --- MUHASEBE İŞLEM LOG YÖNETİMİ ---
-        function viewHistory(studentId) {
-            currentHistoryStudentId = studentId;
-            const student = appState.students.find(s => String(s.id) === String(studentId));
-            if (!student) return;
-            document.getElementById('acc-history-title').innerText = `${student.name} - İşlem Geçmişi`;
-            document.getElementById('history-search-input').value = "";
-            filterHistory();
-            document.getElementById('acc-history-modal').classList.remove('hidden');
-        }
-
-        function filterHistory() {
-            const query = document.getElementById('history-search-input').value.toLowerCase();
-            const list = document.getElementById('acc-history-list');
-            const filtered = appState.accounting.filter(a => String(a.studentId) === String(currentHistoryStudentId)).filter(a => a.desc.toLowerCase().includes(query) || a.date.toLowerCase().includes(query) || a.amount.toString().includes(query));
-            
-            list.innerHTML = filtered.length === 0 ? '<p class="text-center py-4 text-slate-500 text-xs">Aranan kriterde işlem bulunamadı.</p>' : filtered.map(a => `
-                <div class="flex justify-between items-center p-3 glass-card rounded-xl border-l-4 ${a.type==='payment'?'border-green-500':'border-orange-500'}">
-                    <div class="overflow-hidden mr-2">
-                        <p class="font-bold text-sm truncate">${a.desc}</p>
-                        <p class="text-[10px] text-slate-500">${a.date}</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <div class="text-right flex-shrink-0">
-                            <p class="font-bold">₺${a.amount}</p>
-                            <p class="text-[9px] uppercase text-slate-500">${a.type==='payment'?'Ödeme':'Harcama'}</p>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="editTransaction('${a.id}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-blue-400" title="Düzenle"><i class="fas fa-edit"></i></button>
-                            <button onclick="deleteTransaction('${a.id}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-red-400" title="Sil"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function editTransaction(id) {
-            const tr = appState.accounting.find(a => String(a.id) === String(id));
-            if (!tr) return;
-            openTransactionModal(tr.type);
-            document.getElementById('transaction-id').value = tr.id;
-            document.getElementById('transaction-student').value = tr.studentId;
-            document.getElementById('transaction-amount').value = tr.amount;
-            document.getElementById('transaction-desc').value = tr.desc;
-        }
-
-        function deleteTransaction(id) {
-            if (!confirm("Bu muhasebe kaydını kalıcı olarak silmek istediğinize emin misiniz?")) return;
-            appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id));
-            filterHistory();
-            renderAccounting();
-            saveToCloud();
-        }
-
-        function openTransactionModal(type) {
-            const m = document.getElementById('transaction-modal');
-            const f = document.getElementById('transaction-form');
-            f.reset();
-            document.getElementById('transaction-id').value = "";
-            document.getElementById('transaction-type').value = type;
-            document.getElementById('transaction-modal-title').innerText = type === 'payment' ? 'Ödeme Al' : 'Harcama Gir';
-            document.getElementById('transaction-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            m.classList.remove('hidden');
-        }
-
-        function saveTransaction(e) {
-            e.preventDefault();
-            const id = document.getElementById('transaction-id').value;
-            const type = document.getElementById('transaction-type').value;
-            const studentId = document.getElementById('transaction-student').value;
-            const amount = parseFloat(document.getElementById('transaction-amount').value);
-            const desc = document.getElementById('transaction-desc').value;
-
-            const newTr = { 
-                id: id || Date.now().toString(), 
-                type, 
-                studentId, 
-                amount, 
-                desc, 
-                date: id ? appState.accounting.find(a => a.id == id).date : new Date().toLocaleString('tr-TR') 
-            };
-
-            if (id) {
-                const idx = appState.accounting.findIndex(a => String(a.id) === String(id));
-                if (idx !== -1) appState.accounting[idx] = newTr;
-            } else {
-                appState.accounting.push(newTr);
-            }
-
-            e.target.reset(); 
-            closeModal('transaction-modal'); 
-            renderAccounting(); 
-            saveToCloud();
-        }
-
-        // --- STUDENT MANAGEMENT ---
-        function renderStudents(filter = "") {
-            const list = document.getElementById('student-list');
-            if (!list) return; list.innerHTML = '';
-            const data = appState.students.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()));
-            document.getElementById('empty-student-msg').classList.toggle('hidden', data.length > 0);
-            data.forEach(s => {
-                const card = document.createElement('div');
-                card.className = 'glass-card p-4 rounded-xl border-l-4 border-blue-500';
-                card.innerHTML = `<div class="flex gap-3"><div class="w-16 h-16 rounded-lg bg-slate-800 overflow-hidden border border-slate-700">${s.photo ? `<img src="${s.photo}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-slate-600"><i class="fas fa-user text-xl"></i></div>`}</div><div class="flex-1 overflow-hidden"><div class="flex justify-between"><span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-1 rounded uppercase font-bold">${s.grade}. Sınıf</span><div class="space-x-1"><button onclick="openStudentModal('${s.id}')" class="text-xs text-slate-500 hover:text-white p-1"><i class="fas fa-edit"></i></button><button onclick="deleteStudent('${s.id}')" class="text-xs text-red-900 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button></div></div><h3 class="font-bold text-base truncate mt-1">${s.name}</h3><p class="text-green-500 font-bold text-sm mt-1">₺${s.price}</p></div></div>`;
-                list.appendChild(card);
-            });
-        }
-
-        function openStudentModal(id = null) {
-            const m = document.getElementById('student-modal');
-            const f = document.getElementById('student-form'); f.reset();
-            const logContainer = document.getElementById('price-log-container');
-            const logList = document.getElementById('price-log-list');
-            tempStudentPhoto = "";
-            document.getElementById('student-photo-preview').innerHTML = `<i class="fas fa-user text-3xl text-slate-600"></i>`;
-            document.getElementById('student-id').value = id || "";
-            logContainer.classList.add('hidden');
-            logList.innerHTML = "";
-            if(id) {
-                const s = appState.students.find(x => String(x.id) === String(id));
-                if (s) {
-                    document.getElementById('student-name').value = s.name; document.getElementById('student-grade').value = s.grade; document.getElementById('student-price').value = s.price; document.getElementById('student-notes').value = s.notes || "";
-                    if (s.photo) { tempStudentPhoto = s.photo; document.getElementById('student-photo-preview').innerHTML = `<img src="${s.photo}" class="w-full h-full object-cover">`; }
-                    const logs = (appState.priceLogs || []).filter(l => String(l.studentId) === String(id));
-                    if (logs.length > 0) {
-                        logContainer.classList.remove('hidden');
-                        logList.innerHTML = logs.map(l => `<li class="flex justify-between border-b border-slate-700/50 pb-1"><span>${l.date}</span><span class="font-bold">₺${l.old} ➔ ₺${l.new}</span></li>`).join('');
-                    }
-                }
-            }
-            m.classList.remove('hidden');
-        }
-
-        function saveStudent(e) {
-            e.preventDefault();
-            const id = document.getElementById('student-id').value;
-            const price = parseFloat(document.getElementById('student-price').value);
-            const name = document.getElementById('student-name').value;
-            const grade = document.getElementById('student-grade').value;
-            const notes = document.getElementById('student-notes').value;
-            if(id) {
-                const idx = appState.students.findIndex(x => String(x.id) === String(id));
-                const old = appState.students[idx];
-                if(parseFloat(old.price) !== price) {
-                    if (!appState.priceLogs) appState.priceLogs = [];
-                    appState.priceLogs.push({ studentId: id, old: old.price, new: price, date: new Date().toLocaleString('tr-TR') });
-                }
-                appState.students[idx] = { id, photo: tempStudentPhoto, name, grade, price, notes };
-            } else appState.students.push({ id: Date.now().toString(), photo: tempStudentPhoto, name, grade, price, notes });
-            closeModal('student-modal'); renderStudents(); updateStatsSelect(); saveToCloud();
-        }
-
-        function deleteStudent(id) {
-            if(!id || !confirm("Öğrenciyi ve tüm kayıtlarını silmek istediğinize emin misiniz?")) return;
-            appState.students = appState.students.filter(s => String(s.id) !== String(id));
-            appState.lessons = appState.lessons.filter(l => String(l.studentId) !== String(id));
-            appState.accounting = appState.accounting.filter(a => String(a.studentId) !== String(id));
-            appState.priceLogs = (appState.priceLogs || []).filter(l => String(l.studentId) !== String(id));
-            renderStudents(); updateStatsSelect(); renderAccounting(); saveToCloud();
-        }
-
-        // --- HELPERS ---
-        function getStudentName(id) { return appState.students.find(s => String(s.id) === String(id))?.name || "Bilinmiyor"; }
-        function getStudentPrice(id) { return appState.students.find(s => String(s.id) === String(id))?.price || 0; }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-        function filterStudents(q) { renderStudents(q); }
-        function updateStatsSelect() { const select = document.getElementById('stats-student-select'); if (select) select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-
-        async function exportFullCalendarPDF() {
-            const el = document.getElementById('calendar-grid');
-            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
-            const pdf = new jspdf.jsPDF('l', 'mm', 'a4');
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 277, 150);
-            pdf.save('Haftalik_Program.pdf');
-        }
-
-        function exportSingleLessonPDF() {
-            const id = document.getElementById('lesson-id').value;
-            const l = appState.lessons.find(x => String(x.id) === String(id));
-            if(!l) return;
-            const pdf = new jspdf.jsPDF();
-            pdf.setFontSize(22); pdf.text('DERS RAPORU', 105, 20, {align:'center'});
-            pdf.setFontSize(10); pdf.text(`Öğrenci: ${getStudentName(l.studentId)}`, 20, 40);
-            pdf.text('TEST SONUÇLARI:', 20, 80);
-            (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D`, 25, 90 + (i*7)); });
-            pdf.save(`${getStudentName(l.studentId)}_Ders.pdf`);
-        }
-
-        async function exportStatsPDF() {
-            const el = document.getElementById('stats-container');
-            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
-            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 260);
-            pdf.save('Gelisim_Raporu.pdf');
-        }
-
-        async function exportAccountingPDF() {
-            const el = document.getElementById('section-accounting');
-            const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 });
-            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 190, 150);
-            pdf.save('Muhasebe_Raporu.pdf');
-        }
+        // --- EXPORTS ---
+        async function exportFullCalendarPDF() { const el = document.getElementById('calendar-grid'); const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 }); const pdf = new jspdf.jsPDF('l', 'mm', 'a4'); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 277, 150); pdf.save('Takvim.pdf'); }
+        function exportSingleLessonPDF() { const id = document.getElementById('lesson-id').value; const l = appState.lessons.find(x => String(x.id) === String(id)); if(!l) return; const pdf = new jspdf.jsPDF(); pdf.setFontSize(22); pdf.text('DERS RAPORU', 105, 20, {align:'center'}); pdf.setFontSize(10); pdf.text(`Öğrenci: ${getStudentName(l.studentId)}`, 20, 40); (l.tests || []).forEach((t, i) => { pdf.text(`${t.branch}: ${t.q}S - ${t.d}D`, 25, 90 + (i*7)); }); pdf.save(`${getStudentName(l.studentId)}_Ders.pdf`); }
+        async function exportStatsPDF() { const el = document.getElementById('stats-container'); const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 }); const pdf = new jspdf.jsPDF('p', 'mm', 'a4'); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 260); pdf.save('Stats.pdf'); }
+        function exportAccountingPDF_Standard() { alert("Detaylı rapor yakında."); }
 
         window.onload = fetchData;
     </script>

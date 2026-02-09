@@ -14,8 +14,8 @@
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
         .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        .lesson-node { transition: all 0.2s; cursor: pointer; border-left: 4px solid #334155; }
-        .lesson-node:hover { transform: scale(1.02); }
+        .lesson-node { transition: all 0.2s; cursor: pointer; border-left: 4px solid #334155; margin-bottom: 0.5rem; }
+        .lesson-node:hover { transform: scale(1.01); }
         .attendance-true { border-left-color: #10b981; background: rgba(16, 185, 129, 0.1); }
         .attendance-false { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
         input, select, textarea { background: #1e293b !important; color: white !important; border: 1px solid #334155 !important; border-radius: 0.5rem; padding: 0.5rem; }
@@ -23,7 +23,7 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .branch-chip { cursor: pointer; padding: 4px 10px; border-radius: 99px; border: 1px solid #334155; font-size: 11px; transition: all 0.2s; }
         .branch-chip.active { background: #3b82f6; border-color: #3b82f6; color: white; }
-        .loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .media-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #334155; }
     </style>
 </head>
@@ -31,7 +31,8 @@
 
     <div id="loader" class="loading-overlay">
         <i class="fas fa-circle-notch animate-spin text-4xl text-blue-500 mb-4"></i>
-        <p class="text-sm font-medium" id="loader-text">Veriler Eşitleniyor...</p>
+        <p class="text-sm font-medium" id="loader-text">Bulut veritabanına bağlanılıyor...</p>
+        <p id="loader-error" class="text-xs text-red-400 mt-4 hidden">Bağlantı hatası! Lütfen sayfayı yenileyin.</p>
     </div>
 
     <!-- Üst Navigasyon -->
@@ -46,7 +47,7 @@
             <button onclick="switchTab('accounting')" class="nav-link" id="nav-accounting">Muhasebe</button>
         </div>
         <div id="sync-status" class="text-xs text-slate-400">
-            <i class="fas fa-check-circle text-green-500 mr-1"></i> Hazır
+            <i class="fas fa-sync-alt mr-1"></i> Bekleniyor
         </div>
     </nav>
 
@@ -74,7 +75,7 @@
             <div class="flex flex-col md:flex-row justify-between mb-6 gap-4">
                 <div class="relative flex-1">
                     <i class="fas fa-search absolute left-3 top-3 text-slate-500"></i>
-                    <input type="text" placeholder="Öğrenci ara..." class="w-full pl-10" onkeyup="filterStudents(this.value)">
+                    <input type="text" placeholder="Öğrenci ara..." class="w-full pl-10" onkeyup="renderStudents(this.value)">
                 </div>
                 <button onclick="openStudentModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">
                     <i class="fas fa-user-plus mr-2"></i>Yeni Öğrenci
@@ -102,7 +103,7 @@
             </div>
             <div id="stats-empty-state" class="text-center py-20 text-slate-500">
                 <i class="fas fa-chart-line text-5xl mb-4"></i>
-                <p>Lütfen istatistikleri görmek için bir öğrenci seçin.</p>
+                <p>İstatistikleri görmek için öğrenci seçin.</p>
             </div>
             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
                 <div class="glass-card p-4 rounded-xl md:col-span-2"><h3 id="chart-main-title" class="font-bold mb-4 text-xs text-slate-400 uppercase tracking-widest">Test Başarı Grafiği (%)</h3><div class="h-[300px]"><canvas id="chart-test-performance"></canvas></div></div>
@@ -115,26 +116,46 @@
 
         <!-- MUHASEBE BÖLÜMÜ -->
         <section id="section-accounting" class="tab-content hidden">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 text-center">
-                <div class="glass-card p-4 rounded-xl border-t-4 border-blue-500"><p class="text-[10px] text-slate-400 uppercase">Toplam Ders Borcu</p><h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4></div>
-                <div class="glass-card p-4 rounded-xl border-t-4 border-orange-500"><p class="text-[10px] text-slate-400 uppercase">Toplam Harcama</p><h4 id="acc-total-expense" class="text-lg font-bold">₺0</h4></div>
-                <div class="glass-card p-4 rounded-xl border-t-4 border-green-500"><p class="text-[10px] text-slate-400 uppercase">Toplam Tahsilat</p><h4 id="acc-total-paid" class="text-lg font-bold">₺0</h4></div>
-                <div class="glass-card p-4 rounded-xl border-t-4 border-purple-500"><p class="text-[10px] text-slate-400 uppercase">Net Bakiye</p><h4 id="acc-balance" class="text-lg font-bold">₺0</h4></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-center">
+                <div class="glass-card p-4 rounded-xl border-t-4 border-red-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Kalan Bakiye</p>
+                    <h4 id="acc-total-debt" class="text-lg font-bold">₺0</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-t-4 border-green-500">
+                    <p class="text-[10px] text-slate-400 uppercase">Toplam Tahsilat</p>
+                    <h4 id="acc-total-paid" class="text-lg font-bold">₺0</h4>
+                </div>
             </div>
+
             <div class="flex flex-col md:flex-row justify-between mb-4 gap-4">
-                <div class="flex space-x-2"><button onclick="openTransactionModal('payment')" class="bg-green-600 px-4 py-2 rounded text-sm font-bold">Ödeme Al</button><button onclick="openTransactionModal('expense')" class="bg-red-600 px-4 py-2 rounded text-sm font-bold">Harcama Gir</button></div>
-                <input type="text" placeholder="Muhasebe ara..." class="text-sm px-3" onkeyup="renderAccounting(this.value)">
+                <div class="flex space-x-2">
+                    <button onclick="openTransactionModal('payment')" class="bg-green-600 px-4 py-2 rounded text-sm font-bold">Ödeme Al</button>
+                    <button onclick="openTransactionModal('expense')" class="bg-red-600 px-4 py-2 rounded text-sm font-bold">Harcama Gir</button>
+                </div>
+                <input type="text" placeholder="Muhasebe ara..." class="text-sm px-3 flex-1 md:max-w-xs" onkeyup="renderAccounting(this.value)">
             </div>
             <div class="overflow-x-auto glass-card rounded-xl">
                 <table class="w-full text-left text-sm">
-                    <thead><tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400"><th class="p-4">Öğrenci</th><th class="p-4 text-center">Ders</th><th class="p-4">Ders Borcu</th><th class="p-4">Harcamalar</th><th class="p-4">Ödenen</th><th class="p-4 font-bold text-white">Bakiye</th><th class="p-4 text-center">İşlem</th></tr></thead>
+                    <thead>
+                        <tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400">
+                            <th class="p-4">Öğrenci</th>
+                            <th class="p-4 text-center">Ders</th>
+                            <th class="p-4">Ders Borcu</th>
+                            <th class="p-4">Harcama</th>
+                            <th class="p-4">Ödenen</th>
+                            <th class="p-4 font-bold">Bakiye</th>
+                            <th class="p-4 text-center">İşlem</th>
+                        </tr>
+                    </thead>
                     <tbody id="accounting-table-body"></tbody>
+                    <tfoot id="accounting-table-foot"></tfoot>
                 </table>
             </div>
         </section>
     </main>
 
     <!-- MODALLAR -->
+    <!-- Ders Modalı -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 relative">
             <button onclick="closeModal('lesson-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
@@ -142,38 +163,63 @@
             <form id="lesson-form" class="space-y-6" onsubmit="saveLesson(event)">
                 <input type="hidden" id="lesson-id"><input type="hidden" id="lesson-day">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-[10px] text-slate-500 uppercase">Öğrenci</label><select id="lesson-student" class="w-full" required></select></div>
-                    <div><label class="block text-[10px] text-slate-500 uppercase">Zaman & Katılım</label><div class="flex gap-2"><input type="time" id="lesson-time" class="flex-1" required><label class="flex items-center space-x-2 px-3 glass-card rounded cursor-pointer"><input type="checkbox" id="lesson-attendance" class="w-4 h-4"><span class="text-xs">Burada</span></label></div></div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase">Öğrenci</label>
+                        <select id="lesson-student" class="w-full" required></select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 uppercase">Zaman & Katılım</label>
+                        <div class="flex gap-2">
+                            <input type="time" id="lesson-time" class="flex-1" required>
+                            <label class="flex items-center space-x-2 px-3 glass-card rounded cursor-pointer">
+                                <input type="checkbox" id="lesson-attendance" class="w-4 h-4">
+                                <span class="text-xs">Katıldı</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                <div><label class="block text-[10px] text-slate-500 uppercase mb-2">Branş</label><div id="branch-container" class="flex flex-wrap gap-2"></div></div>
-                <div class="bg-slate-800/40 p-4 rounded-xl"><div class="flex justify-between items-center mb-4"><label class="text-[10px] text-slate-500 uppercase font-bold">Testler</label><button type="button" onclick="addTestRow()" class="text-[10px] bg-blue-600 text-white px-3 py-1 rounded-full">+ Ekle</button></div><div id="test-rows-container" class="space-y-2"></div></div>
+                <div><label class="block text-[10px] text-slate-500 uppercase mb-2">Branşlar</label><div id="branch-container" class="flex flex-wrap gap-2"></div></div>
+                <div class="bg-slate-800/40 p-4 rounded-xl"><div class="flex justify-between items-center mb-4"><label class="text-[10px] text-slate-500 uppercase font-bold">Test Girişi</label><button type="button" onclick="addTestRow()" class="text-[10px] bg-blue-600 text-white px-3 py-1 rounded-full">+ Ekle</button></div><div id="test-rows-container" class="space-y-2"></div></div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-[10px] text-slate-500 uppercase">Okuma</label><div class="flex gap-2"><input type="number" placeholder="Kelime" id="l-words" class="w-full"><input type="number" placeholder="%" id="l-comp" class="w-full"></div></div>
-                    <div><label class="block text-[10px] text-slate-500 uppercase">Duygu</label><div class="flex gap-3 justify-between"><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="1" class="hidden peer"><span class="peer-checked:scale-125 inline-block">😡</span></label><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="3" class="hidden peer"><span class="peer-checked:scale-125 inline-block">😐</span></label><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="5" class="hidden peer"><span class="peer-checked:scale-125 inline-block">😊</span></label></div></div>
+                    <div class="flex gap-2"><input type="number" placeholder="Kelime" id="l-words" class="w-full"><input type="number" placeholder="Anlama %" id="l-comp" class="w-full"></div>
+                    <div class="flex gap-3 justify-between"><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="1" class="hidden peer"><span class="peer-checked:scale-125 inline-block opacity-40 peer-checked:opacity-100">😡</span></label><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="3" class="hidden peer"><span class="peer-checked:scale-125 inline-block opacity-40 peer-checked:opacity-100">😐</span></label><label class="cursor-pointer text-2xl"><input type="radio" name="mood" value="5" class="hidden peer"><span class="peer-checked:scale-125 inline-block opacity-40 peer-checked:opacity-100">😊</span></label></div>
                 </div>
                 <div class="space-y-2"><label class="block text-[10px] text-slate-500 uppercase">Medya</label><input type="file" id="lesson-media-input" accept="image/*,video/*" multiple class="text-xs" onchange="handleLessonMedia(event)"><div id="lesson-media-preview" class="flex flex-wrap gap-2 mt-2"></div></div>
                 <textarea id="lesson-notes" placeholder="Notlar..." class="w-full h-20 text-sm"></textarea>
                 <div class="flex justify-between items-center pt-4 border-t border-slate-700">
-                    <div class="flex gap-4"><button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-sm">PDF</button><button id="btn-lesson-delete" type="button" onclick="deleteCurrentLesson()" class="text-red-500 text-sm hidden">Sil</button></div>
+                    <div class="flex gap-4"><button type="button" onclick="exportSingleLessonPDF()" class="text-blue-400 text-xs hover:underline">PDF Al</button><button id="btn-lesson-delete" type="button" onclick="deleteCurrentLesson()" class="text-red-500 text-xs hidden">Sil</button></div>
                     <div class="space-x-3"><button type="button" onclick="closeModal('lesson-modal')" class="bg-slate-800 px-5 py-2 rounded-lg text-sm">Vazgeç</button><button type="submit" class="bg-blue-600 px-8 py-2 rounded-lg font-bold text-sm">Kaydet</button></div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Student Modal -->
+    <!-- Diğer Modallar -->
     <div id="student-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-lg rounded-2xl p-6 relative overflow-y-auto max-h-[90vh]">
             <button onclick="closeModal('student-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
-            <h2 id="student-modal-title" class="text-xl font-bold mb-6">Öğrenci Kaydı</h2>
+            <h2 id="student-modal-title" class="text-xl font-bold mb-6">Öğrenci Profili</h2>
             <form id="student-form" class="space-y-4" onsubmit="saveStudent(event)">
                 <input type="hidden" id="student-id">
-                <div class="flex flex-col items-center mb-4"><div id="student-photo-preview" class="w-24 h-24 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden"><i class="fas fa-user text-3xl text-slate-600"></i></div><input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48 mt-2" onchange="handleStudentPhoto(event)"></div>
+                <div class="flex flex-col items-center mb-4"><div id="student-photo-preview" class="w-20 h-20 rounded-full bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden"><i class="fas fa-user text-2xl text-slate-600"></i></div><input type="file" id="student-photo-input" accept="image/*" class="text-[10px] w-48 mt-2" onchange="handleStudentPhoto(event)"></div>
                 <input type="text" id="student-name" placeholder="Ad Soyad" class="w-full" required>
-                <div class="grid grid-cols-2 gap-4"><select id="student-grade" class="w-full"><option value="1">1. Sınıf</option><option value="8">8. Sınıf</option><option value="12">12. Sınıf</option></select><input type="number" id="student-price" placeholder="Ücret" class="w-full" required></div>
-                <textarea id="student-notes" placeholder="Notlar" class="w-full h-20"></textarea>
-                <div id="price-log-container" class="hidden text-xs bg-slate-800 p-2 rounded"><p class="font-bold">Geçmiş:</p><ul id="price-log-list"></ul></div>
-                <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold">Kaydet</button>
+                <div class="grid grid-cols-2 gap-4"><select id="student-grade" class="w-full"><option value="1">1. Sınıf</option><option value="2">2. Sınıf</option><option value="3">3. Sınıf</option><option value="4">4. Sınıf</option><option value="5">5. Sınıf</option><option value="6">6. Sınıf</option><option value="7">7. Sınıf</option><option value="8">8. Sınıf</option><option value="9">9. Sınıf</option><option value="10">10. Sınıf</option><option value="11">11. Sınıf</option><option value="12">12. Sınıf</option></select><input type="number" id="student-price" placeholder="Birim Ücret" class="w-full" required></div>
+                <div id="price-log-container" class="hidden text-[10px] bg-slate-800 p-2 rounded"><ul id="price-log-list" class="space-y-1"></ul></div>
+                <button type="submit" class="w-full bg-green-600 py-3 rounded-xl font-bold mt-4">Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
+            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">İşlem Girişi</h2>
+            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
+                <input type="hidden" id="transaction-id"><input type="hidden" id="transaction-type">
+                <select id="transaction-student" class="w-full" required></select>
+                <input type="number" id="transaction-amount" placeholder="Tutar" class="w-full" required>
+                <input type="text" id="transaction-desc" placeholder="Açıklama" class="w-full" required>
+                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-4">Kaydet</button>
             </form>
         </div>
     </div>
@@ -181,23 +227,9 @@
     <div id="acc-history-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-2xl rounded-2xl p-6 relative max-h-[80vh] overflow-hidden flex flex-col">
             <button onclick="closeModal('acc-history-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
-            <h2 id="acc-history-title" class="text-xl font-bold mb-4">Geçmiş</h2>
-            <input type="text" id="history-search-input" placeholder="Ara..." class="w-full text-xs mb-3" onkeyup="filterHistory()">
-            <div id="acc-history-list" class="space-y-3 overflow-y-auto flex-1"></div>
-        </div>
-    </div>
-
-    <div id="transaction-modal" class="fixed inset-0 bg-black/90 hidden z-[60] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md rounded-2xl p-6 relative">
-            <button onclick="closeModal('transaction-modal')" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
-            <h2 id="transaction-modal-title" class="text-xl font-bold mb-6">İşlem</h2>
-            <form id="transaction-form" class="space-y-4" onsubmit="saveTransaction(event)">
-                <input type="hidden" id="transaction-id"><input type="hidden" id="transaction-type">
-                <select id="transaction-student" class="w-full" required></select>
-                <input type="number" id="transaction-amount" placeholder="Tutar" class="w-full" required>
-                <input type="text" id="transaction-desc" placeholder="Açıklama" class="w-full" required>
-                <button type="submit" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Kaydet</button>
-            </form>
+            <h2 id="acc-history-title" class="text-xl font-bold mb-4">Geçmiş İşlemler</h2>
+            <input type="text" id="history-search-input" placeholder="Tarih veya açıklama ile ara..." class="w-full text-xs mb-3" onkeyup="filterHistory()">
+            <div id="acc-history-list" class="space-y-2 overflow-y-auto flex-1"></div>
         </div>
     </div>
 
@@ -212,49 +244,65 @@
             priceLogs: [],
             currentWeekOffset: 0,
             branches: ["Matematik", "Türkçe", "Hayat Bilgisi", "Sosyal Bilgiler", "Fen Bilimleri", "İngilizce", "Bilsem", "Robotik Kodlama", "Akıl ve Zeka Oyunları"],
-            charts: { mood: null, subjectsSuccess: null, performance: null, reading: null, branchCount: null }
+            charts: { mood: null, subjectsSuccess: null, performance: null, reading: null, branchCount: null },
+            isLoaded: false
         };
 
         let tempStudentPhoto = "";
         let tempLessonMedia = [];
         let currentHistoryStudentId = null;
 
-        // --- FETCH WITH RETRY ---
-        async function fetchData(retryCount = 0) {
+        // --- FETCH ENGINE ---
+        async function fetchData(retry = 0) {
             if(!API_URL) return;
             try {
                 const response = await fetch(API_URL);
-                if (!response.ok) throw new Error("Ağ hatası");
                 const rawData = await response.text();
+                if (!rawData || rawData === "Success") throw new Error("Boş veri");
                 const data = JSON.parse(rawData);
-                if(data && typeof data === 'object') appState = {...appState, ...data};
+                appState = {...appState, ...data, isLoaded: true};
                 document.getElementById('loader').classList.add('hidden');
                 updateStatsSelect();
                 initCalendar();
                 renderStudents();
             } catch(e) {
-                if (retryCount < 3) {
-                    setTimeout(() => fetchData(retryCount + 1), 1000 * Math.pow(2, retryCount));
+                console.error("Fetch Hatası:", e);
+                if (retry < 3) {
+                    setTimeout(() => fetchData(retry + 1), 2000);
                 } else {
-                    console.error("Fetch başarısız:", e);
-                    document.getElementById('loader').classList.add('hidden');
-                    initCalendar();
+                    document.getElementById('loader-text').innerText = "Veriler alınamadı. Lütfen yenileyin.";
+                    document.getElementById('loader-error').classList.remove('hidden');
                 }
             }
         }
 
         async function saveToCloud() {
-            if(!API_URL) return;
+            if(!API_URL || !appState.isLoaded) return;
             document.getElementById('sync-status').innerHTML = '<i class="fas fa-sync-alt animate-spin text-blue-400 mr-1"></i> Kaydediliyor...';
             try {
-                await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(appState) });
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(appState)
+                });
                 document.getElementById('sync-status').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> Senkronize';
             } catch(e) {
                 document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> Hata';
             }
         }
 
+        function updateStatsSelect() { 
+            const select = document.getElementById('stats-student-select'); 
+            const accSelect = document.getElementById('transaction-student');
+            const options = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            if (select) select.innerHTML = options;
+            if (accSelect) accSelect.innerHTML = options;
+        }
+
         // --- HELPERS ---
+        function getStudentName(id) { return appState.students.find(s => String(s.id) === String(id))?.name || "Bilinmiyor"; }
+        function getStudentPrice(id) { return appState.students.find(s => String(s.id) === String(id))?.price || 0; }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function getWeekId() {
             const today = new Date();
             const diff = (today.getDay() === 0 ? -6 : 1 - today.getDay()) + (appState.currentWeekOffset * 7);
@@ -264,14 +312,7 @@
             return monday.toISOString().split('T')[0];
         }
 
-        function getStudentName(id) { return appState.students.find(s => String(s.id) === String(id))?.name || "Bilinmiyor"; }
-        function getStudentPrice(id) { return appState.students.find(s => String(s.id) === String(id))?.price || 0; }
-        function updateStatsSelect() { 
-            const select = document.getElementById('stats-student-select'); 
-            if (select) select.innerHTML = '<option value="">Öğrenci Seçiniz</option>' + appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-        }
-
-        // --- RENDERERS ---
+        // --- UI RENDERING ---
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`section-${tabId}`).classList.remove('hidden');
@@ -305,7 +346,7 @@
         }
 
         function changeWeek(off) { appState.currentWeekOffset += off; initCalendar(); }
-        function jumpToWeek(v) { if(!v) return; const parts = v.split('-W'); const year = parseInt(parts[0]); const week = parseInt(parts[1]); const sel = new Date(year, 0, 1 + (week - 1) * 7); const now = new Date(); now.setHours(0,0,0,0); appState.currentWeekOffset = Math.floor((sel - now) / (7 * 24 * 60 * 60 * 1000)); initCalendar(); }
+        function jumpToWeek(v) { if(!v) return; const parts = v.split('-W'); const year = parseInt(parts[0]); const week = parseInt(parts[1]); const sel = new Date(year, 0, 1 + (week - 1) * 7); const now = new Date(); now.setHours(0,0,0,0); appState.currentWeekOffset = Math.round((sel - now) / (7 * 24 * 60 * 60 * 1000)); initCalendar(); }
 
         function renderAllLessons() {
             const currentWeekId = getWeekId();
@@ -323,7 +364,47 @@
             });
         }
 
-        // --- ACTIONS ---
+        // --- LESSON ---
+        function openLessonModal(day, id = null) {
+            const modal = document.getElementById('lesson-modal');
+            const form = document.getElementById('lesson-form');
+            form.reset();
+            tempLessonMedia = [];
+            document.getElementById('lesson-media-preview').innerHTML = '';
+            document.getElementById('lesson-student').innerHTML = appState.students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            const bc = document.getElementById('branch-container');
+            bc.innerHTML = appState.branches.map(b => `<div class="branch-chip" onclick="toggleBranchChip(this)">${b}</div>`).join('');
+            document.getElementById('test-rows-container').innerHTML = '';
+            document.getElementById('lesson-day').value = day;
+            document.getElementById('lesson-id').value = id || "";
+            const deleteBtn = document.getElementById('btn-lesson-delete');
+            if(id) {
+                deleteBtn.classList.remove('hidden');
+                const l = appState.lessons.find(x => String(x.id) === String(id));
+                if (l) {
+                    document.getElementById('lesson-student').value = l.studentId;
+                    document.getElementById('lesson-time').value = l.time;
+                    document.getElementById('lesson-attendance').checked = l.attendance;
+                    document.getElementById('l-words').value = l.words || "";
+                    document.getElementById('l-comp').value = l.comprehension || "";
+                    document.getElementById('lesson-notes').value = l.notes || "";
+                    if(l.mood) { const r = form.querySelector(`input[name="mood"][value="${l.mood}"]`); if(r) r.checked = true; }
+                    (l.selectedBranches || []).forEach(bName => { const chip = [...bc.children].find(c => c.innerText === bName); if(chip) chip.classList.add('active'); });
+                    (l.tests || []).forEach(t => addTestRow(t));
+                    if (l.media) { tempLessonMedia = [...l.media]; l.media.forEach(m => { const el = document.createElement('div'); el.innerHTML = `<img src="${m.data}" class="media-preview">`; document.getElementById('lesson-media-preview').appendChild(el); }); }
+                }
+            } else deleteBtn.classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function addTestRow(data = null) {
+            const container = document.getElementById('test-rows-container');
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-6 gap-2 items-center';
+            row.innerHTML = `<select class="text-[10px] col-span-2 py-1 text-black">${appState.branches.map(b => `<option ${data?.branch === b ? 'selected' : ''}>${b}</option>`).join('')}</select><input type="number" placeholder="S" class="text-[10px] py-1" value="${data?.q || ''}"><input type="number" placeholder="D" class="text-[10px] py-1" value="${data?.d || ''}"><input type="number" placeholder="Y" class="text-[10px] py-1" value="${data?.w || ''}"><input type="number" placeholder="B" class="text-[10px] py-1" value="${data?.e || ''}"><button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-trash-alt"></i></button>`;
+            container.appendChild(row);
+        }
+
         function saveLesson(event) {
             event.preventDefault();
             const id = document.getElementById('lesson-id').value;
@@ -333,7 +414,7 @@
                 return { branch: row.querySelector('select').value, q: parseInt(inputs[0].value || 0), d: parseInt(inputs[1].value || 0), w: parseInt(inputs[2].value || 0), e: parseInt(inputs[3].value || 0) };
             });
             const sId = document.getElementById('lesson-student').value;
-            const lesson = { id: id || Date.now().toString(), weekId: getWeekId(), studentId: sId, day: parseInt(document.getElementById('lesson-day').value), time: document.getElementById('lesson-time').value, attendance: document.getElementById('lesson-attendance').checked, selectedBranches: branches, tests, media: tempLessonMedia, words: document.getElementById('l-words').value, comprehension: document.getElementById('l-comp').value, mood: document.querySelector('input[name="mood"]:checked')?.value || null, notes: document.getElementById('lesson-notes').value, reminders: document.getElementById('lesson-reminders').value, unitPrice: getStudentPrice(sId) };
+            const lesson = { id: id || Date.now().toString(), weekId: getWeekId(), studentId: sId, day: parseInt(document.getElementById('lesson-day').value), time: document.getElementById('lesson-time').value, attendance: document.getElementById('lesson-attendance').checked, selectedBranches: branches, tests, media: tempLessonMedia, words: document.getElementById('l-words').value, comprehension: document.getElementById('l-comp').value, mood: document.querySelector('input[name="mood"]:checked')?.value || null, notes: document.getElementById('lesson-notes').value, unitPrice: getStudentPrice(sId) };
             if(id) { const idx = appState.lessons.findIndex(x => String(x.id) === String(id)); if (idx !== -1) appState.lessons[idx] = lesson; }
             else appState.lessons.push(lesson);
             closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
@@ -346,94 +427,81 @@
             closeModal('lesson-modal'); renderAllLessons(); saveToCloud();
         }
 
-        function saveStudent(e) {
-            e.preventDefault();
-            const id = document.getElementById('student-id').value;
-            const p = parseFloat(document.getElementById('student-price').value);
-            const d = { id: id || Date.now().toString(), photo: tempStudentPhoto, name: document.getElementById('student-name').value, grade: document.getElementById('student-grade').value, price: p, notes: document.getElementById('student-notes').value };
-            if(id) {
-                const i = appState.students.findIndex(x => String(x.id) === String(id));
-                if(appState.students[i].price !== p) appState.priceLogs.push({ studentId: id, old: appState.students[i].price, new: p, date: new Date().toLocaleString() });
-                appState.students[i] = d;
-            } else appState.students.push(d);
-            closeModal('student-modal'); renderStudents(); updateStatsSelect(); saveToCloud();
-        }
-
-        function renderStudents(q = "") {
-            const list = document.getElementById('student-list');
-            if(!list) return; list.innerHTML = '';
-            const filtered = appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
-            document.getElementById('empty-student-msg').classList.toggle('hidden', filtered.length > 0);
-            filtered.forEach(s => {
-                const div = document.createElement('div');
-                div.className = 'glass-card p-4 rounded-xl flex gap-3 border-l-4 border-blue-500';
-                div.innerHTML = `<div class="w-12 h-12 rounded bg-slate-800 overflow-hidden flex-shrink-0">${s.photo ? `<img src="${s.photo}" class="w-full h-full object-cover">` : `<i class="fas fa-user m-3"></i>`}</div><div class="flex-1 overflow-hidden"><div class="flex justify-between"><strong>${s.name}</strong><button onclick="openStudentModal('${s.id}')" class="text-blue-400 text-xs"><i class="fas fa-edit"></i></button></div><div class="text-[10px] opacity-60">${s.grade}. Sınıf - ₺${s.price}</div></div>`;
-                list.appendChild(div);
-            });
-        }
-
+        // --- ACCOUNTING ---
         function renderAccounting(q = "") {
             const body = document.getElementById('accounting-table-body');
+            const foot = document.getElementById('accounting-table-foot');
             if(!body) return; body.innerHTML = '';
-            let tD = 0, tP = 0, tE = 0;
+            let tD = 0, tP = 0, tE = 0, tL = 0;
             appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
                 const lessons = appState.lessons.filter(l => String(l.studentId) === String(s.id) && l.attendance);
                 const lDebt = lessons.reduce((sum, l) => sum + (l.unitPrice || s.price), 0);
                 const eExp = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'expense').reduce((sum, a) => sum + a.amount, 0);
                 const paid = appState.accounting.filter(a => String(a.studentId) === String(s.id) && a.type === 'payment').reduce((sum, a) => sum + a.amount, 0);
                 const bal = (lDebt + eExp) - paid;
-                tD += lDebt; tP += paid; tE += eExp;
-                body.innerHTML += `<tr class="border-b border-slate-800"> <td class="p-4">${s.name}</td> <td class="p-4 text-center">${lessons.length}</td> <td class="p-4 text-blue-400">₺${lDebt}</td> <td class="p-4 text-orange-400">₺${eExp}</td> <td class="p-4 text-green-500">₺${paid}</td> <td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-400'}">₺${bal}</td> <td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history text-slate-400"></i></button></td> </tr>`;
+                tD += lDebt; tP += paid; tE += eExp; tL += lessons.length;
+                body.innerHTML += `<tr class="border-b border-slate-800 hover:bg-slate-800/20"><td class="p-4 font-bold">${s.name}</td><td class="p-4 text-center">${lessons.length}</td><td class="p-4 text-blue-400">₺${lDebt}</td><td class="p-4 text-orange-400">₺${eExp}</td><td class="p-4 text-green-500 font-bold">₺${paid}</td><td class="p-4 font-bold ${bal > 0 ? 'text-red-500' : 'text-blue-400'}">₺${bal}</td><td class="p-4 text-center"><button onclick="viewHistory('${s.id}')" class="bg-slate-800 p-2 rounded"><i class="fas fa-history text-slate-400"></i></button></td></tr>`;
             });
+            foot.innerHTML = `<tr class="bg-slate-800 font-bold"><td class="p-4">GENEL TOPLAM</td><td class="p-4 text-center">${tL}</td><td class="p-4">₺${tD}</td><td class="p-4">₺${tE}</td><td class="p-4">₺${tP}</td><td class="p-4">₺${tD + tE - tP}</td><td></td></tr>`;
             document.getElementById('acc-total-debt').innerText = `₺${tD + tE - tP}`;
             document.getElementById('acc-total-paid').innerText = `₺${tP}`;
         }
 
-        // --- STATS ENGINE ---
-        function loadStudentStats(id) { 
-            const c = document.getElementById('stats-container'); 
-            const e = document.getElementById('stats-empty-state'); 
-            if(!id) { c.classList.add('hidden'); e.classList.remove('hidden'); return; } 
-            c.classList.remove('hidden'); e.classList.add('hidden'); initStats(); 
+        function viewHistory(id) { currentHistoryStudentId = id; document.getElementById('acc-history-modal').classList.remove('hidden'); filterHistory(); }
+        function filterHistory() {
+            const q = document.getElementById('history-search-input').value.toLowerCase();
+            const filtered = appState.accounting.filter(a => String(a.studentId) === String(currentHistoryStudentId)).filter(a => a.desc.toLowerCase().includes(q) || a.date.toLowerCase().includes(q));
+            document.getElementById('acc-history-list').innerHTML = filtered.map(a => `<div class="flex justify-between p-3 glass-card rounded border-l-4 ${a.type === 'payment' ? 'border-green-500' : 'border-orange-500'}"><div><p class="font-bold">${a.desc}</p><p class="text-[10px]">${a.date}</p></div><div class="flex items-center gap-2"><span>₺${a.amount}</span><button onclick="editTransaction('${a.id}')" class="text-blue-400"><i class="fas fa-edit"></i></button><button onclick="deleteTransaction('${a.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></div></div>`).join('');
         }
+
+        function editTransaction(id) { const t = appState.accounting.find(a => String(a.id) === String(id)); if (!t) return; openTransactionModal(t.type); document.getElementById('transaction-id').value = t.id; document.getElementById('transaction-student').value = t.studentId; document.getElementById('transaction-amount').value = t.amount; document.getElementById('transaction-desc').value = t.desc; }
+        function deleteTransaction(id) { if(!confirm("Silsin mi?")) return; appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id)); filterHistory(); renderAccounting(); saveToCloud(); }
+        function openTransactionModal(type) { const m = document.getElementById('transaction-modal'); document.getElementById('transaction-form').reset(); document.getElementById('transaction-id').value = ""; document.getElementById('transaction-type').value = type; m.classList.remove('hidden'); }
+        function saveTransaction(e) { e.preventDefault(); const id = document.getElementById('transaction-id').value; const sId = document.getElementById('transaction-student').value; const type = document.getElementById('transaction-type').value; const am = parseFloat(document.getElementById('transaction-amount').value); const d = document.getElementById('transaction-desc').value; if(id) { const idx = appState.accounting.findIndex(a => String(a.id) === String(id)); appState.accounting[idx] = { ...appState.accounting[idx], studentId: sId, amount: am, desc: d }; } else { appState.accounting.push({ id: Date.now().toString(), type, studentId: sId, amount: am, desc: d, date: new Date().toLocaleString() }); } closeModal('transaction-modal'); renderAccounting(); saveToCloud(); }
+
+        // --- MEDIA ---
+        async function compressImg(b64, w = 200) { return new Promise(r => { const i = new Image(); i.src = b64; i.onload = () => { const c = document.createElement('canvas'); const s = w/i.width; c.width = w; c.height = i.height*s; const ctx = c.getContext('2d'); ctx.drawImage(i,0,0,c.width,c.height); r(c.toDataURL('image/jpeg', 0.6)); }; }); }
+        async function handleStudentPhoto(ev) { const f = ev.target.files[0]; if(!f) return; const rd = new FileReader(); rd.onload = async (e) => { const opt = await compressImg(e.target.result, 150); tempStudentPhoto = opt; document.getElementById('student-photo-preview').innerHTML = `<img src="${opt}" class="w-full h-full object-cover">`; }; rd.readAsDataURL(f); }
+        async function handleLessonMedia(ev) { const fs = ev.target.files; const pr = document.getElementById('lesson-media-preview'); for(let f of fs) { const rd = new FileReader(); rd.onload = async (e) => { let d = e.target.result; if(f.type.startsWith('image/')) d = await compressImg(d, 250); tempLessonMedia.push({data:d, type:f.type}); const el = document.createElement('div'); el.innerHTML = `<img src="${d}" class="media-preview">`; pr.appendChild(el); }; rd.readAsDataURL(f); } }
+
+        // --- STATS ---
+        function loadStudentStats(id) { const c = document.getElementById('stats-container'); const e = document.getElementById('stats-empty-state'); if(!id) { c.classList.add('hidden'); e.classList.remove('hidden'); return; } c.classList.remove('hidden'); e.classList.add('hidden'); initStats(); }
         function initStats() {
             const chs = ['mood', 'subjectsSuccess', 'performance', 'reading', 'branchCount']; chs.forEach(c => { if(appState.charts[c]) appState.charts[c].destroy(); });
             const sId = document.getElementById('stats-student-select').value; if(!sId) return;
             const dPool = appState.lessons.filter(l => String(l.studentId) === String(sId));
             
-            // Mood
-            const moods = [0,0,0,0,0]; dPool.forEach(l => { if(l.mood) moods[l.mood-1]++; });
-            appState.charts.mood = new Chart(document.getElementById('chart-mood'), { type: 'doughnut', data: { labels: ['Kötü','Zayıf','Normal','İyi','Harika'], datasets:[{ data: moods, backgroundColor:['#ef4444','#f97316','#eab308','#3b82f6','#22c55e'] }] }, options: { maintainAspectRatio:false } });
-
-            // Branch count
+            appState.charts.mood = new Chart(document.getElementById('chart-mood'), { type: 'doughnut', data: { labels: ['Kötü','Normal','Harika'], datasets:[{ data: [dPool.filter(l=>l.mood==1).length, dPool.filter(l=>l.mood==3).length, dPool.filter(l=>l.mood==5).length], backgroundColor:['#ef4444','#eab308','#22c55e'] }] }, options: { maintainAspectRatio:false } });
+            
             const bcCounts = {}; appState.branches.forEach(b => bcCounts[b] = 0);
             dPool.forEach(l => (l.selectedBranches || []).forEach(b => bcCounts[b]++));
-            appState.charts.branchCount = new Chart(document.getElementById('chart-branch-count'), { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'Ders', data: appState.branches.map(b=>bcCounts[b]), backgroundColor:'#a855f7' }] }, options: { maintainAspectRatio:false } });
+            appState.charts.branchCount = new Chart(document.getElementById('chart-branch-count'), { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'Ders Sayısı', data: appState.branches.map(b=>bcCounts[b]), backgroundColor:'#a855f7' }] }, options: { maintainAspectRatio:false } });
 
-            // Success
             const brS = {}; appState.branches.forEach(b => brS[b] = { t:0, c:0 });
             dPool.forEach(l => (l.tests || []).forEach(t => { if(brS[t.branch]) { brS[t.branch].t += t.q; brS[t.branch].c += t.d; } }));
             appState.charts.subjectsSuccess = new Chart(document.getElementById('chart-subjects-success'), { type: 'bar', data: { labels: appState.branches, datasets:[{ label:'% Başarı', data: appState.branches.map(b => brS[b].t > 0 ? (brS[b].c/brS[b].t)*100 : 0), backgroundColor:'#3b82f6' }] }, options: { maintainAspectRatio:false, scales:{y:{min:0,max:100}} } });
 
-            // Line Performance
             const tH = []; dPool.forEach(l => (l.tests || []).forEach(t => tH.push({ r: t.q > 0 ? (t.d/t.q)*100 : 0 })));
             appState.charts.performance = new Chart(document.getElementById('chart-test-performance'), { type: 'line', data: { labels: tH.map((_,i)=>i+1), datasets:[{label:'% Başarı', data:tH.map(x=>x.r), borderColor:'#3b82f6', tension:0.4}] }, options: { maintainAspectRatio:false, scales:{y:{min:0,max:100}} } });
-            
-            // Reading
+
             const p = dPool.filter(l => l.words || l.comprehension).slice(-10);
             appState.charts.reading = new Chart(document.getElementById('chart-reading'), { type: 'line', data: { labels: p.map((_,i)=>i+1), datasets:[{label:'Kelime', data:p.map(l=>l.words||0), borderColor:'#a855f7'}, {label:'% Anlama', data:p.map(l=>l.comprehension||0), borderColor:'#22c55e'}] }, options: { maintainAspectRatio:false } });
         }
 
-        // --- OTHER UI ACTIONS ---
+        // --- EXPORTS ---
+        function exportFullCalendarPDF() { html2canvas(document.getElementById('calendar-grid')).then(c => { const p = new jspdf.jsPDF('l', 'mm', 'a4'); p.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, 277, 150); p.save('Takvim.pdf'); }); }
+        function exportSingleLessonPDF() { alert("Ders özeti PDF hazırlanıyor..."); }
+        function exportStatsPDF() { alert("İstatistik raporu PDF hazırlanıyor..."); }
+        function exportAccountingPDF_Standard() { alert("Muhasebe tablosu PDF hazırlanıyor..."); }
         function toggleBranchChip(el) { el.classList.toggle('active'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-        async function exportFullCalendarPDF() { const el = document.getElementById('calendar-grid'); const canvas = await html2canvas(el, { backgroundColor:'#0f172a', scale:2 }); const pdf = new jspdf.jsPDF('l', 'mm', 'a4'); pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 277, 150); pdf.save('Takvim.pdf'); }
-        function exportSingleLessonPDF() { alert("Ders çıktısı PDF olarak oluşturuluyor..."); }
-        function exportStatsPDF() { alert("İstatistik raporu oluşturuluyor..."); }
-        function exportAccountingPDF_Standard() { alert("Muhasebe raporu oluşturuluyor..."); }
-        function filterHistory() { /* implemented within viewHistory flow */ }
-        function deleteTransaction(id) { if(!confirm("Silsin mi?")) return; appState.accounting = appState.accounting.filter(a => String(a.id) !== String(id)); saveToCloud(); renderAccounting(); closeModal('acc-history-modal'); }
-        function saveTransaction(e) { e.preventDefault(); const type = document.getElementById('transaction-type').value; const sId = document.getElementById('transaction-student').value; const am = parseFloat(document.getElementById('transaction-amount').value); const d = document.getElementById('transaction-desc').value; appState.accounting.push({ id: Date.now().toString(), type, studentId: sId, amount: am, desc: d, date: new Date().toLocaleString() }); closeModal('transaction-modal'); renderAccounting(); saveToCloud(); }
+        function renderStudents(q = "") {
+            const list = document.getElementById('student-list'); if(!list) return; list.innerHTML = '';
+            appState.students.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).forEach(s => {
+                const d = document.createElement('div'); d.className = 'glass-card p-4 rounded-xl flex gap-3 border-l-4 border-blue-500';
+                d.innerHTML = `<div class="w-12 h-12 rounded bg-slate-800 overflow-hidden flex-shrink-0">${s.photo ? `<img src="${s.photo}" class="w-full h-full object-cover">` : `<i class="fas fa-user m-3"></i>`}</div><div class="flex-1"><strong>${s.name}</strong><button onclick="openStudentModal('${s.id}')" class="text-blue-400 text-xs ml-2"><i class="fas fa-edit"></i></button></div>`;
+                list.appendChild(d);
+            });
+        }
 
         window.onload = fetchData;
     </script>
